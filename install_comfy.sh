@@ -172,9 +172,9 @@ rename_environment() {
     local new_name="$2"
     
     # Validate new name
-    if [[ ! "$new_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    if [[ ! "$new_name" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
         log_error "Invalid environment name: $new_name"
-        log_info "Names can only contain letters, numbers, underscores, and hyphens."
+        log_info "Names can only contain letters, numbers, underscores, hyphens, and dots."
         return 1
     fi
     
@@ -220,9 +220,9 @@ clone_environment() {
     local target_env="$2"
     
     # Validate target name
-    if [[ ! "$target_env" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    if [[ ! "$target_env" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
         log_error "Invalid environment name: $target_env"
-        log_info "Names can only contain letters, numbers, underscores, and hyphens."
+        log_info "Names can only contain letters, numbers, underscores, hyphens, and dots."
         return 1
     fi
     
@@ -982,9 +982,9 @@ main() {
     
     if [ -n "$custom_name" ]; then
         # Validate custom name
-        if [[ ! "$custom_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        if [[ ! "$custom_name" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
             log_error "Invalid environment name: $custom_name"
-            log_info "Names can only contain letters, numbers, underscores, and hyphens."
+            log_info "Names can only contain letters, numbers, underscores, hyphens, and dots."
             exit 1
         fi
         version_dir="${VERSIONS_ROOT}/${custom_name}"
