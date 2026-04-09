@@ -1,4 +1,4 @@
-# 🎨 ComfyUI Multi-Version Manager
+# 🎨 ComfyEnv
 
 <div align="center">
 
