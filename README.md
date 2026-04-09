@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**A powerful bash script for managing multiple ComfyUI installations with different Python versions, GPU configurations, and custom environments.**
+**Easily manage multiple ComfyUI installations with different versions, Python setups, and GPU configurations - all from one simple script.**
 
 [![Bash](https://img.shields.io/badge/Bash-5.0+-886942?logo=gnu-bash)](https://www.gnu.org/software/bash/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python)](https://www.python.org/)
@@ -14,31 +14,46 @@
 
 ## ✨ Features
 
+### 📂 Shared Models Folder
+- **One central location for all your models** - Every installation automatically connects to a single `models/` folder at the root level
+- **No duplicate downloads** - Download each model once and it's available across all your setups
+- **Saves disk space** - No need to store multiple copies of the same checkpoints, LoRAs, VAEs, etc.
+- **Always accessible** - Your models stay with you even when you create or delete installations
+
 ### 🚀 Multi-Version Installation
 - **Install any ComfyUI version** - Supports all versions from v0.3.x to latest
-- **Automatic Python version detection** - Smart mapping based on ComfyUI requirements
-- **Custom environment names** - Name your installations meaningfully (e.g., `production.v1`, `dev-test`)
-- **Version listing** - Browse all available GitHub releases with pagination support
+- **Automatic Python setup** - Smart selection based on what your version needs
+- **Custom names for your setups** - Give them meaningful names like `production.v1` or `dev-test`
+- **Browse available versions** - See all GitHub releases
 
-### 🎯 GPU-Aware PyTorch Installation
-- **Auto-detection** for NVIDIA, AMD, Intel Arc, and Apple Silicon GPUs
-- **Interactive selection** when auto-detection fails
-- **Stable vs Nightly** PyTorch options for performance tuning
+### 🎯 GPU-Aware Setup
+- **Auto-detects your graphics card** - Works with NVIDIA, AMD, Intel Arc, and Apple Silicon
+- **Stable or experimental options** - Choose between reliable or cutting-edge performance
 - Follows official [ComfyUI documentation](https://github.com/Comfy-Org/ComfyUI) installation commands
 
 ### 📦 Environment Management
 | Command | Description |
 |---------|-------------|
-| `--env-list` | List all installed environments with version info |
-| `--env-delete NAME` | Safely remove an environment (with confirmation) |
-| `--env-rename OLD NEW` | Rename/move an environment directory |
-| `--env-clone SRC DST` | Clone an existing environment (uses rsync if available) |
+| `--env-list` | See all your installed setups with version info |
+| `--env-delete NAME` | Safely remove a setup (asks for confirmation first) |
+| `--env-rename OLD NEW` | Rename or move a setup directory |
+| `--env-clone SRC DST` | Duplicate an existing setup quickly |
 
-### 🔧 Advanced Options
-- **Shared models directory** - Automatic symlink to root-level models folder
-- **ComfyUI-Manager support** - Built-in or standalone installation
-- **Verbose output** - Real-time progress for all installations
-- **Flexible naming** - Supports letters, numbers, underscores, hyphens, and dots
+### 🔧 Additional Features
+- **ComfyUI-Manager support** - Installed automatically by default
+- **Detailed progress output** - See exactly what's happening during installation
+- **Flexible naming** - Use letters, numbers, underscores, hyphens, and dots in names
+
+---
+
+### 💡 Pro Tip: Keep Your Workflows Safe!
+
+**Store your workflow files outside the `comfy_versions/` folder!** This way:
+- ✅ You can use the same workflows across different setups
+- ✅ They won't disappear if you delete or reinstall a setup
+- ✅ Easy to back up and share with others
+
+A good place is right next to the script, like `workflows/`
 
 ---
 
@@ -56,7 +71,7 @@ sudo apt install git curl python3
 sudo pacman -S git curl python
 ```
 
-### Pyenv Installation (Required for Python version management)
+### Pyenv Installation (Needed for managing Python versions)
 
 **Using pyenv-installer:**
 ```bash
@@ -162,20 +177,21 @@ pyenv --version  # Should output version number
 
 ## 🗂️ Directory Structure
 
-After installation, your directory will look like:
+After installation, your folder will look like this:
 
 ```
 comfy/
 ├── install_comfy.sh          # Main installer script
-├── models/                   # Shared models directory (create this)
+├── models/                   # ⭐ Shared models - all setups use this one!
 │   ├── checkpoints/
 │   ├── vae/
 │   └── loras/
+├── workflows/                # 💡 Keep your workflow files here (recommended)
 └── comfy_versions/           # All installations stored here
     ├── v0.3.62/
-    │   ├── python_3.11/      # Python virtual environment
+    │   ├── python_3.11/      # Python setup
     │   ├── comfyui/          # ComfyUI source code
-    │   └── models -> ../models/  # Symlink to shared models
+    │   └── models -> ../models/  # Points to shared models folder
     └── production.v1/
         ├── python_3.13/
         ├── comfyui/
@@ -288,30 +304,6 @@ This project was vibecoded with: **[Qwen3.5-27B-Claude-4.6-Opus-Reasoning-Distil
 </div>
 
 <p align="center">If this project helped you, consider buying me a coffee!</p>
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see below for details:
-
-> Permission is hereby granted, free of charge, to any person obtaining a copy
-> of this software and associated documentation files (the "Software"), to deal
-> in the Software without restriction, including without limitation the rights
-> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-> copies of the Software, and to permit persons to whom the Software is
-> furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all
-> copies or substantial portions of the Software.
->
-> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-> SOFTWARE.
 
 ---
 
