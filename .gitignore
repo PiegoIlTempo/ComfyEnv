@@ -1,0 +1,21 @@
+# Exclude comfy_versions directory
+comfy_versions/
+
+# Exclude workflows directory
+workflows/
+
+# Exclude everything in models folder
+models/*
+
+# But keep the existing config files in models/configs
+!models/configs/anything_v3.yaml
+!models/configs/v1-inference.yaml
+!models/configs/v1-inference_clip_skip_2.yaml
+!models/configs/v1-inference_clip_skip_2_fp16.yaml
+!models/configs/v1-inference_fp16.yaml
+!models/configs/v1-inpainting-inference.yaml
+!models/configs/v2-inference-v.yaml
+!models/configs/v2-inference-v_fp32.yaml
+!models/configs/v2-inference.yaml
+!models/configs/v2-inference_fp32.yaml
+!models/configs/v2-inpainting-inference.yaml
