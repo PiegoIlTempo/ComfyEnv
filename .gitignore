@@ -1,13 +1,19 @@
 # Exclude comfy_versions directory
-comfy_versions/
+comfy_versions/*
+!comfy_versions/.gitkeep
 
 # Exclude workflows directory
-workflows/
+workflows/*
+!workflows/.gitkeep
 
 # Exclude everything in models folder
-models/*
+models/*/*
 
 # But keep the existing config files in models/configs
+!models/audio_encoders/put_audio_encoder_models_here
+!models/checkpoints/put_checkpoints_here
+!models/clip/put_clip_or_text_encoder_models_here
+!models/clip_vision/put_clip_vision_models_here
 !models/configs/anything_v3.yaml
 !models/configs/v1-inference.yaml
 !models/configs/v1-inference_clip_skip_2.yaml
@@ -19,3 +25,20 @@ models/*
 !models/configs/v2-inference.yaml
 !models/configs/v2-inference_fp32.yaml
 !models/configs/v2-inpainting-inference.yaml
+!models/controlnet/put_controlnets_and_t2i_here
+!models/diffusers/put_diffusers_models_here
+!models/diffusion_models/put_diffusion_model_files_here
+!models/embeddings/put_embeddings_or_textual_inversion_concepts_here
+!models/gligen/put_gligen_models_here
+!models/hypernetworks/put_hypernetworks_here
+!models/latent_upscale_models/put_latent_upscale_models_here
+!models/loras/put_loras_here
+!models/model_patches/put_model_patches_here
+!models/photomaker/put_photomaker_models_here
+!models/style_models/put_t2i_style_model_here
+!models/text_encoders/put_text_encoder_files_here
+!models/unet/put_unet_files_here
+!models/upscale_models/put_esrgan_and_other_upscale_models_here
+!models/vae/put_vae_here
+!models/vae_approx/put_taesd_encoder_pth_and_taesd_decoder_pth_here
+
