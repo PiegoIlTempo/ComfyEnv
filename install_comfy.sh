@@ -108,30 +108,29 @@ get_commit_from_tag() {
 
     log_info "Fetching commit hash for tag: $tag"
 
-    # Method 1: Use GitHub API to get release info with commit SHA
-    local response=$(curl -s "https://api.github.com/repos/Comfy-Org/ComfyUI/releases/tags/$tag")
-
-    if [ $? -eq 0 ]; then
-        # Extract target_commitish (the actual commit SHA the tag points to)
-        local target_commit=$(echo "$response" | grep -o '"target_commitish": *"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
-        if [ -n "$target_commit" ] && [ "$target_commit" != "null" ]; then
-            echo "$target_commit"
-            return 0
-        fi
-    fi
-
-    # Method 2: Use git ls-remote to get the commit hash for the tag directly
-    log_warning "GitHub API method failed, using git ls-remote fallback..."
-
-    local commit=$(git ls-remote --tags "$COMFYUI_REPO" | grep "refs/tags/$tag" | awk '{print $1}')
+    # Method 1: Use git ls-remote to get the commit hash for the tag directly (most reliable)
+    local commit=$(git ls-remote --tags "$COMFYUI_REPO" | grep -E "refs/tags/$tag\^?$" | awk '{print $1}')
     
     if [ -n "$commit" ]; then
         echo "$commit"
         return 0
     fi
 
+    # Method 2: Use GitHub API to get the release SHA
+    log_warning "git ls-remote failed, trying GitHub API..."
+    local response=$(curl -s "https://api.github.com/repos/Comfy-Org/ComfyUI/releases/tags/$tag")
+
+    if [ $? -eq 0 ]; then
+        # Extract the 'sha' field from the release object (this is the actual commit SHA)
+        local sha=$(echo "$response" | grep -o '"sha": *"[^"]*"' | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+        if [ -n "$sha" ] && [ "$sha" != "null" ]; then
+            echo "$sha"
+            return 0
+        fi
+    fi
+
     # Method 3: Shallow clone and use git rev-parse (last resort)
-    log_warning "git ls-remote failed, using shallow clone fallback..."
+    log_warning "GitHub API method failed, using shallow clone fallback..."
 
     local temp_dir=$(mktemp -d)
     cd "$temp_dir" || exit 1
@@ -232,22 +231,48 @@ clone_comfyui() {
 
     log_info "Cloning ComfyUI at $tag_or_commit..."
 
-    # Clone with specific tag/commit
-    if git clone --depth 1 --branch "$tag_or_commit" "$COMFYUI_REPO" "$comfyui_path" 2>&1; then
-        log_success "ComfyUI cloned successfully"
-
-        # Show what we actually got
+    # Check if this is a commit hash (40 hex chars) or a tag/branch name
+    if [[ "$tag_or_commit" =~ ^[a-f0-9]{40}$ ]]; then
+        # It's a full commit hash - use fetch + checkout approach
+        git init "$comfyui_path" 2>/dev/null
         cd "$comfyui_path" || exit 1
-        local actual_ref=$(git rev-parse --short HEAD)
-        cd - > /dev/null
-
-        log_info "Cloned commit: $actual_ref"
+        
+        git remote add origin "$COMFYUI_REPO"
+        git fetch origin "$tag_or_commit" 2>/dev/null
+        git checkout "$tag_or_commit" 2>/dev/null
+        
+        if [ $? -eq 0 ]; then
+            cd - > /dev/null
+            log_success "ComfyUI cloned successfully"
+            local actual_ref=$(git rev-parse --short HEAD)
+            log_info "Cloned commit: $actual_ref"
+        else
+            cd - > /dev/null
+            rm -rf "$comfyui_path"
+            log_error "Failed to clone ComfyUI at $tag_or_commit"
+            echo ""
+            echo "Please verify the version tag exists:"
+            echo "  https://github.com/Comfy-Org/ComfyUI/releases"
+            exit 1
+        fi
     else
-        log_error "Failed to clone ComfyUI at $tag_or_commit"
-        echo ""
-        echo "Please verify the version tag exists:"
-        echo "  https://github.com/Comfy-Org/ComfyUI/releases"
-        exit 1
+        # It's a tag or branch name - use standard clone with --branch
+        if git clone --depth 1 --branch "$tag_or_commit" "$COMFYUI_REPO" "$comfyui_path" 2>&1; then
+            log_success "ComfyUI cloned successfully"
+
+            # Show what we actually got
+            cd "$comfyui_path" || exit 1
+            local actual_ref=$(git rev-parse --short HEAD)
+            cd - > /dev/null
+
+            log_info "Cloned commit: $actual_ref"
+        else
+            log_error "Failed to clone ComfyUI at $tag_or_commit"
+            echo ""
+            echo "Please verify the version tag exists:"
+            echo "  https://github.com/Comfy-Org/ComfyUI/releases"
+            exit 1
+        fi
     fi
 }
 

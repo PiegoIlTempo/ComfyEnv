@@ -9,7 +9,7 @@ workflows/*
 # Exclude everything in models folder
 models/*/*
 
-# But keep the existing config files in models/configs
+# But keep the existing config files in models
 !models/audio_encoders/put_audio_encoder_models_here
 !models/checkpoints/put_checkpoints_here
 !models/clip/put_clip_or_text_encoder_models_here
