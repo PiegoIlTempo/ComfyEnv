@@ -5,7 +5,6 @@
 # ============================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSIONS_ROOT="${SCRIPT_DIR}/comfy_versions"
-ARGS="--enable-manager --enable-manager-legacy-ui"
 BROWSER_URL="http://127.0.0.1:8188"
 LOG_FILE="comfyui.log"
 
@@ -170,6 +169,13 @@ validate_version() {
     if [ ! -f "${COMFY_PATH}/main.py" ]; then
         echo -e "${RED}✗ main.py not found in: ${COMFY_PATH}${NC}"
         exit 1
+    fi
+
+    # Determine manager arguments based on whether built-in manager is available
+    if [ -f "${COMFY_PATH}/manager_requirements.txt" ]; then
+        ARGS="--enable-manager --enable-manager-legacy-ui"
+    else
+        ARGS=""
     fi
 
     return 0
@@ -473,6 +479,13 @@ validate_version "$SELECTED_VERSION"
 echo -e "${BLUE}Selected Version: ${GREEN}${SELECTED_VERSION}${NC}"
 echo -e "${BLUE}ComfyUI Path:     ${CYAN}${COMFY_PATH}${NC}"
 echo -e "${BLUE}Python Env:       ${CYAN}${PYTHON_PATH}${NC}"
+
+# Show manager status
+if [ -n "$ARGS" ]; then
+    echo -e "${BLUE}Manager Args:     ${GREEN}${ARGS}${NC}"
+else
+    echo -e "${BLUE}Manager Args:     ${YELLOW}(none - standalone or no manager)${NC}"
+fi
 echo ""
 
 # Clear old log file for fresh start
