@@ -60,6 +60,160 @@ log_error() {
     echo -e "${RED}[✗]${NC} $1" >&2
 }
 
+install_pytorch() {
+    local python_bin="$1"
+    local force_stable=false
+    
+    # Check if user wants stable version via environment variable or argument
+    if [ "$FORCE_STABLE_PYTORCH" = "true" ] || [ "$2" = "--stable" ]; then
+        force_stable=true
+    fi
+    
+    echo ""
+    log_info "Detecting GPU type for PyTorch installation..."
+    echo ""
+    
+    # Try to auto-detect GPU
+    local auto_detected=""
+    
+    # Check for NVIDIA GPU
+    if command -v nvidia-smi &>/dev/null; then
+        if nvidia-smi --query-gpu=name --format=csv,noheader &>/dev/null 2>&1; then
+            auto_detected="nvidia"
+            log_info "Auto-detected: NVIDIA GPU"
+        fi
+    fi
+    
+    # Check for AMD GPU (ROCm)
+    if [ -z "$auto_detected" ] && command -v rocm-smi &>/dev/null; then
+        auto_detected="amd"
+        log_info "Auto-detected: AMD GPU"
+    elif [ -z "$auto_detected" ] && command -v lstopo &>/dev/null; then
+        if lstopo --json 2>/dev/null | grep -qi "AMD\|Radeon"; then
+            auto_detected="amd"
+            log_info "Auto-detected: AMD GPU"
+        fi
+    fi
+    
+    # Check for Intel Arc GPU
+    if [ -z "$auto_detected" ] && command -v lspci &>/dev/null; then
+        if lspci 2>/dev/null | grep -qi "Intel.*Arc\|Vivid Lake"; then
+            auto_detected="intel"
+            log_info "Auto-detected: Intel Arc GPU"
+        fi
+    fi
+    
+    # Check for Apple Silicon
+    if [ -z "$auto_detected" ] && uname -m | grep -qi "arm64\|aarch64"; then
+        if sw_vers 2>/dev/null | grep -qi "macOS"; then
+            auto_detected="apple"
+            log_info "Auto-detected: Apple Silicon (M1/M2/M3)"
+        fi
+    fi
+    
+    # Present options to user
+    echo "Please select your GPU type:"
+    echo "  1) NVIDIA (CUDA) - RTX/GTX series"
+    echo "  2) AMD (ROCm) - Radeon RX series"
+    echo "  3) Intel (XPU) - Arc GPUs"
+    echo "  4) Apple Silicon - M1/M2/M3 chips"
+    echo "  5) CPU only - No GPU acceleration"
+    
+    if [ -n "$auto_detected" ]; then
+        case "$auto_detected" in
+            nvidia) echo "  → Auto-detected: Option 1 (NVIDIA)" ;;
+            amd)    echo "  → Auto-detected: Option 2 (AMD)" ;;
+            intel)  echo "  → Auto-detected: Option 3 (Intel)" ;;
+            apple)  echo "  → Auto-detected: Option 4 (Apple Silicon)" ;;
+        esac
+    fi
+    
+    echo ""
+    read -rp "Select option [1-5] (default: $auto_detected): " gpu_choice
+    
+    # Set default based on auto-detection
+    case "$auto_detected" in
+        nvidia) [ -z "$gpu_choice" ] && gpu_choice=1 ;;
+        amd)    [ -z "$gpu_choice" ] && gpu_choice=2 ;;
+        intel)  [ -z "$gpu_choice" ] && gpu_choice=3 ;;
+        apple)  [ -z "$gpu_choice" ] && gpu_choice=4 ;;
+        *)      [ -z "$gpu_choice" ] && gpu_choice=1 ;;
+    esac
+    
+    # Ask about stable vs nightly PyTorch
+    echo ""
+    read -rp "Use stable PyTorch? (nightly may have better performance) [Y/n]: " stable_choice
+    [[ "$stable_choice" =~ ^[Nn]$ ]] && force_stable=false || force_stable=true
+    
+    local pip_install_cmd=""
+    
+    case "$gpu_choice" in
+        1)
+            # NVIDIA CUDA
+            log_info "Installing PyTorch for NVIDIA GPU (CUDA)..."
+            if [ "$force_stable" = true ]; then
+                pip_install_cmd="$python_bin -m pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu130"
+                log_info "Using stable PyTorch with CUDA 13.0"
+            else
+                pip_install_cmd="$python_bin -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu132"
+                log_info "Using nightly PyTorch with CUDA 13.2 (may have better performance)"
+            fi
+            ;;
+        2)
+            # AMD ROCm
+            log_info "Installing PyTorch for AMD GPU (ROCm)..."
+            if [ "$force_stable" = true ]; then
+                pip_install_cmd="$python_bin -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.2"
+                log_info "Using stable PyTorch with ROCm 7.2"
+            else
+                pip_install_cmd="$python_bin -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/rocm7.2"
+                log_info "Using nightly PyTorch with ROCm 7.2 (may have better performance)"
+            fi
+            ;;
+        3)
+            # Intel XPU
+            log_info "Installing PyTorch for Intel Arc GPU (XPU)..."
+            if [ "$force_stable" = true ]; then
+                pip_install_cmd="$python_bin -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu"
+                log_info "Using stable PyTorch with XPU"
+            else
+                pip_install_cmd="$python_bin -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/xpu"
+                log_info "Using nightly PyTorch with XPU (may have better performance)"
+            fi
+            ;;
+        4)
+            # Apple Silicon
+            log_info "Installing PyTorch for Apple Silicon..."
+            pip_install_cmd="$python_bin -m pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cpu"
+            log_info "Using nightly PyTorch (recommended for Apple Silicon)"
+            log_warning "For best results, see: https://developer.apple.com/metal/pytorch/"
+            ;;
+        5|*)
+            # CPU only
+            log_info "Installing PyTorch for CPU-only mode..."
+            pip_install_cmd="$python_bin -m pip install torch torchvision torchaudio"
+            log_warning "CPU-only mode will be significantly slower than GPU acceleration"
+            ;;
+    esac
+    
+    echo ""
+    log_info "Running: $pip_install_cmd"
+    echo ""
+    
+    # Execute the installation
+    eval "$pip_install_cmd"
+    
+    if [ $? -eq 0 ]; then
+        log_success "PyTorch installed successfully"
+    else
+        log_error "Failed to install PyTorch"
+        echo ""
+        echo "You can manually install PyTorch later using the command above."
+        echo "See: https://pytorch.org/get-started/locally/"
+        exit 1
+    fi
+}
+
 check_dependencies() {
     local missing=()
 
@@ -561,17 +715,20 @@ main() {
     # Step 6: Clone ComfyUI at specific commit
     clone_comfyui "$version_dir" "$commit_hash"
 
-    # Step 7: Install requirements.txt
+    # Step 7: Install PyTorch based on GPU type
+    install_pytorch "$python_bin"
+
+    # Step 8: Install requirements.txt
     install_requirements "${version_dir}/comfyui" "$python_bin"
 
-    # Step 8: Install ComfyUI-Manager (unless skipped)
+    # Step 9: Install ComfyUI-Manager (unless skipped)
     if [ "$skip_manager" = false ]; then
         install_manager "${version_dir}/comfyui" "$python_bin"
     else
         log_info "Skipping ComfyUI-Manager installation (--no-manager)"
     fi
 
-    # Step 9: Create model symlinks
+    # Step 10: Create model symlinks
     create_model_symlinks "$version_dir"
 
     # Show completion summary
