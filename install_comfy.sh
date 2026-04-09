@@ -507,14 +507,25 @@ install_manager() {
 create_model_symlinks() {
     local version_dir="$1"
 
-    # Create symlinks to shared model directories if they exist at root level
+    # Always create symlink to shared models directory at root level
     local root_models="${SCRIPT_DIR}/models"
     local version_comfyui="${version_dir}/comfyui"
+    local target_models="${version_comfyui}/models"
 
-    if [ -d "$root_models" ] && [ ! -d "${version_comfyui}/models" ]; then
+    if [ -d "$root_models" ]; then
+        # Remove existing models directory or symlink if it exists
+        if [ -e "$target_models" ] || [ -L "$target_models" ]; then
+            log_info "Removing existing models link..."
+            rm -rf "$target_models"
+        fi
+        
+        # Create fresh symlink to shared models directory
         log_info "Creating symlink to shared models directory..."
-        ln -s "$root_models" "${version_comfyui}/models"
+        ln -s "$root_models" "$target_models"
         log_success "Models symlinked from: $root_models"
+    else
+        log_warning "Shared models directory not found at: $root_models"
+        log_info "You can create it manually and symlink later if needed."
     fi
 }
 
