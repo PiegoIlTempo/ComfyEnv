@@ -26,21 +26,24 @@
 
 ---
 
-### 3. Global Default Settings for New Environments ✅
-- **Goal**: Allow users to set default options that apply to all new installations
-- **Benefit**: Avoid repeating the same flags every time
+### 3. Global Default ComfyUI Settings for New Environments ✅
+- **Goal**: Apply custom ComfyUI settings automatically when creating new environments
+- **Benefit**: 
+  - Pre-configure UI preferences, API settings, performance options
+  - Consistent setup across all installations
+  - Save time on repetitive configuration
 - **Implementation**:
-  - Create `~/.comfyenvrc` or `./comfyenv.config` file
-  - Store defaults like:
-    ```bash
-    DEFAULT_PYTHON=3.11
-    DEFAULT_GPU=nvidia-stable
-    INSTALL_MANAGER=true
-    WORKFLOW_DIR=./workflows/
-    OUTPUT_DIR=./outputs/
-    INPUT_DIR=./inputs/
+  - Create `./default_comfy_settings.json` template file
+  - Copy to each new environment's `user_data/` folder during install
+  - Can include:
+    ```json
+    {
+      "Comfy.Devices": {"cpu": false, "cuda": true},
+      "ComfyUI.frontend.version": "latest",
+      "ComfyUI.extra_model_paths_string": "..."
+    }
     ```
-  - Script reads config before showing prompts
+  - Add `--settings-file PATH` option to override per-installation
 
 ---
 
