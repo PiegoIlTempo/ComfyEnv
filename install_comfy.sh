@@ -60,6 +60,218 @@ log_error() {
     echo -e "${RED}[✗]${NC} $1" >&2
 }
 
+list_environments() {
+    log_info "Listing all ComfyUI environments..."
+    echo ""
+    
+    if [ ! -d "$VERSIONS_ROOT" ]; then
+        log_warning "No environments found. Versions root doesn't exist: $VERSIONS_ROOT"
+        return 1
+    fi
+    
+    local count=0
+    printf "%-30s %-12s %-20s %s\n" "NAME" "VERSION" "PYTHON" "PATH"
+    printf "%-30s %-12s %-20s %s\n" "----" "-------" "------" "----"
+    
+    for version_dir in "$VERSIONS_ROOT"/*/; do
+        [ -d "$version_dir" ] || continue
+        
+        local basename=$(basename "$version_dir")
+        local comfyui_path="${version_dir}comfyui"
+        local version="unknown"
+        local python_ver="unknown"
+        
+        # Get ComfyUI version from git if available
+        if [ -d "${comfyui_path}/.git" ]; then
+            version=$(cd "$comfyui_path" && git describe --tags --abbrev=0 2>/dev/null || echo "commit")
+            version="${version:0:12}"
+        fi
+        
+        # Find Python environment
+        for py_dir in "${version_dir}"python_*; do
+            [ -d "$py_dir" ] || continue
+            python_ver=$(basename "$py_dir")
+            break
+        done
+        
+        printf "%-30s %-12s %-20s %s\n" "$basename" "$version" "$python_ver" "${version_dir}"
+        count=$((count + 1))
+    done
+    
+    echo ""
+    if [ $count -eq 0 ]; then
+        log_warning "No environments found in: $VERSIONS_ROOT"
+        return 1
+    else
+        log_success "Found $count environment(s)"
+        return 0
+    fi
+}
+
+delete_environment() {
+    local env_name="$1"
+    local version_dir="${VERSIONS_ROOT}/${env_name}"
+    
+    if [ ! -d "$version_dir" ]; then
+        # Try to find matching environment
+        local matches=$(find "$VERSIONS_ROOT" -maxdepth 1 -type d -name "*${env_name}*" 2>/dev/null)
+        if [ -z "$matches" ]; then
+            log_error "Environment not found: $env_name"
+            list_environments
+            return 1
+        fi
+        
+        # If multiple matches, ask user
+        local match_count=$(echo "$matches" | wc -l)
+        if [ $match_count -gt 1 ]; then
+            log_warning "Multiple environments match '$env_name':"
+            echo "$matches"
+            return 1
+        fi
+        version_dir="$matches"
+        env_name=$(basename "$version_dir")
+    fi
+    
+    echo ""
+    log_warning "You are about to DELETE the following environment:"
+    echo "  Name: $env_name"
+    echo "  Path: $version_dir"
+    echo ""
+    
+    # Show what will be deleted
+    if [ -d "${version_dir}/comfyui" ]; then
+        echo "  ✓ ComfyUI installation"
+    fi
+    for py_dir in "${version_dir}"python_*; do
+        [ -d "$py_dir" ] && echo "  ✓ Python environment: $(basename $py_dir)"
+    done
+    
+    echo ""
+    read -rp "Are you sure you want to delete this environment? (y/N): " confirm
+    
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        log_info "Deletion cancelled"
+        return 0
+    fi
+    
+    # Perform deletion
+    log_info "Deleting environment: $env_name"
+    rm -rf "$version_dir"
+    
+    if [ $? -eq 0 ]; then
+        log_success "Environment deleted successfully: $env_name"
+        return 0
+    else
+        log_error "Failed to delete environment: $env_name"
+        return 1
+    fi
+}
+
+rename_environment() {
+    local old_name="$1"
+    local new_name="$2"
+    
+    # Validate new name
+    if [[ ! "$new_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        log_error "Invalid environment name: $new_name"
+        log_info "Names can only contain letters, numbers, underscores, and hyphens."
+        return 1
+    fi
+    
+    local old_dir="${VERSIONS_ROOT}/${old_name}"
+    local new_dir="${VERSIONS_ROOT}/${new_name}"
+    
+    if [ ! -d "$old_dir" ]; then
+        log_error "Environment not found: $old_name"
+        list_environments
+        return 1
+    fi
+    
+    if [ -e "$new_dir" ] || [ -L "$new_dir" ]; then
+        log_error "Environment already exists: $new_name"
+        return 1
+    fi
+    
+    echo ""
+    log_info "Renaming environment:"
+    echo "  From: $old_name"
+    echo "  To:   $new_name"
+    echo ""
+    
+    read -rp "Confirm rename? (y/N): " confirm
+    
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        log_info "Rename cancelled"
+        return 0
+    fi
+    
+    # Perform rename
+    if mv "$old_dir" "$new_dir"; then
+        log_success "Environment renamed successfully: $old_name → $new_name"
+        return 0
+    else
+        log_error "Failed to rename environment"
+        return 1
+    fi
+}
+
+clone_environment() {
+    local source_env="$1"
+    local target_env="$2"
+    
+    # Validate target name
+    if [[ ! "$target_env" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        log_error "Invalid environment name: $target_env"
+        log_info "Names can only contain letters, numbers, underscores, and hyphens."
+        return 1
+    fi
+    
+    local source_dir="${VERSIONS_ROOT}/${source_env}"
+    local target_dir="${VERSIONS_ROOT}/${target_env}"
+    
+    if [ ! -d "$source_dir" ]; then
+        log_error "Source environment not found: $source_env"
+        list_environments
+        return 1
+    fi
+    
+    if [ -e "$target_dir" ] || [ -L "$target_dir" ]; then
+        log_error "Target environment already exists: $target_env"
+        return 1
+    fi
+    
+    echo ""
+    log_info "Cloning environment:"
+    echo "  From: $source_env"
+    echo "  To:   $target_env"
+    echo ""
+    
+    read -rp "Confirm clone? (y/N): " confirm
+    
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        log_info "Clone cancelled"
+        return 0
+    fi
+    
+    # Clone using rsync for efficiency, preserving symlinks
+    log_info "Cloning environment..."
+    
+    if command -v rsync &>/dev/null; then
+        rsync -av --delete "$source_dir/" "$target_dir/"
+    else
+        cp -aL "$source_dir" "$target_dir"
+    fi
+    
+    if [ $? -eq 0 ]; then
+        log_success "Environment cloned successfully: $source_env → $target_env"
+        return 0
+    else
+        log_error "Failed to clone environment"
+        rm -rf "$target_dir" 2>/dev/null
+        return 1
+    fi
+}
+
 install_pytorch() {
     local python_bin="$1"
     local force_stable=false
@@ -555,21 +767,35 @@ show_help() {
 ComfyUI Version Installer
 
 Usage: $0 [OPTIONS] <VERSION>
+       $0 <COMMAND> [ARGS]
 
-Arguments:
+Installation:
   VERSION           ComfyUI version tag (e.g., v0.3.62, v0.18.0)
-
-Options:
   --python VER      Force specific Python version (e.g., 3.12)
+  --name NAME       Custom name for the environment (default: version tag)
   --no-manager      Skip ComfyUI-Manager installation
   --list            List available versions from GitHub
   --help            Show this help message
 
+Environment Management:
+  --env-list                List all installed environments
+  --env-delete NAME        Delete an environment
+  --env-rename OLD NEW     Rename an environment
+  --env-clone SRC DST      Clone an environment
+
 Examples:
+Installation:
   $0 v0.3.62                    # Install v0.3.62 with auto-detected Python
   $0 v0.18.0 --python 3.13      # Install v0.18.0 with Python 3.13
+  $0 v0.3.62 --name my-comfy    # Install v0.3.62 named "my-comfy"
   $0 v0.3.62 --no-manager       # Install without ComfyUI-Manager
   $0 --list                    # List available versions
+
+Environment Management:
+  $0 --env-list                # List all environments
+  $0 --env-delete my-comfy     # Delete "my-comfy" environment
+  $0 --env-rename old new      # Rename environment from "old" to "new"
+  $0 --env-clone src dst       # Clone "src" environment to "dst"
 
 EOF
 }
@@ -610,13 +836,26 @@ fetch_all_releases() {
 main() {
     local target_version=""
     local force_python=""
+    local custom_name=""
     local skip_manager=false
+    
+    # Environment management flags
+    local env_list=false
+    local env_delete=""
+    local env_rename_old=""
+    local env_rename_new=""
+    local env_clone_src=""
+    local env_clone_dst=""
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --python)
                 force_python="$2"
+                shift 2
+                ;;
+            --name)
+                custom_name="$2"
                 shift 2
                 ;;
             --no-manager)
@@ -636,6 +875,24 @@ main() {
                 echo "See more at: https://github.com/Comfy-Org/ComfyUI/releases"
                 exit 0
                 ;;
+            --env-list)
+                env_list=true
+                shift
+                ;;
+            --env-delete)
+                env_delete="$2"
+                shift 2
+                ;;
+            --env-rename)
+                env_rename_old="$2"
+                env_rename_new="$3"
+                shift 3
+                ;;
+            --env-clone)
+                env_clone_src="$2"
+                env_clone_dst="$3"
+                shift 3
+                ;;
             --help|-h)
                 show_help
                 exit 0
@@ -651,6 +908,27 @@ main() {
                 ;;
         esac
     done
+    
+    # Handle environment management commands
+    if [ "$env_list" = true ]; then
+        list_environments
+        exit $?
+    fi
+    
+    if [ -n "$env_delete" ]; then
+        delete_environment "$env_delete"
+        exit $?
+    fi
+    
+    if [ -n "$env_rename_old" ] && [ -n "$env_rename_new" ]; then
+        rename_environment "$env_rename_old" "$env_rename_new"
+        exit $?
+    fi
+    
+    if [ -n "$env_clone_src" ] && [ -n "$env_clone_dst" ]; then
+        clone_environment "$env_clone_src" "$env_clone_dst"
+        exit $?
+    fi
 
     # Validate version argument
     if [ -z "$target_version" ]; then
@@ -699,8 +977,20 @@ main() {
         log_info "Using forced Python version: $python_ver"
     fi
 
-    # Step 3: Create version directory
-    local version_dir="${VERSIONS_ROOT}/${target_version}"
+    # Step 3: Create version directory with custom name if provided
+    local version_dir
+    
+    if [ -n "$custom_name" ]; then
+        # Validate custom name
+        if [[ ! "$custom_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            log_error "Invalid environment name: $custom_name"
+            log_info "Names can only contain letters, numbers, underscores, and hyphens."
+            exit 1
+        fi
+        version_dir="${VERSIONS_ROOT}/${custom_name}"
+    else
+        version_dir="${VERSIONS_ROOT}/${target_version}"
+    fi
 
     if [ -d "$version_dir" ]; then
         log_warning "Version directory already exists: $version_dir"
