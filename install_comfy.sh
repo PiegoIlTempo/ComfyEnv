@@ -574,7 +574,17 @@ create_python_environment() {
 
     # Upgrade pip, setuptools, wheel in the new environment
     log_info "Upgrading pip, setuptools, and wheel..."
-    "${env_path}/bin/pip" install --upgrade pip setuptools wheel -q
+    echo ""
+    local upgrade_cmd="${env_path}/bin/pip install --upgrade pip setuptools wheel"
+    log_info "Running: $upgrade_cmd"
+    echo ""
+    eval "$upgrade_cmd"
+    
+    if [ $? -eq 0 ]; then
+        log_success "pip, setuptools, and wheel upgraded successfully"
+    else
+        log_warning "Some packages may have failed to upgrade"
+    fi
 }
 
 clone_comfyui() {
@@ -649,7 +659,11 @@ install_requirements() {
     log_info "Installing ComfyUI requirements..."
 
     if [ -f "${comfyui_path}/requirements.txt" ]; then
-        "$python_bin" -m pip install -r "${comfyui_path}/requirements.txt" -q
+        echo ""
+        local install_cmd="${python_bin} -m pip install -r \"${comfyui_path}/requirements.txt\""
+        log_info "Running: $install_cmd"
+        echo ""
+        eval "$install_cmd"
 
         if [ $? -eq 0 ]; then
             log_success "ComfyUI requirements installed"
@@ -669,8 +683,11 @@ install_manager() {
     # Check if manager_requirements.txt exists (built-in manager)
     if [ -f "${comfyui_path}/manager_requirements.txt" ]; then
         log_info "Installing built-in ComfyUI Manager..."
-
-        "$python_bin" -m pip install -r "${comfyui_path}/manager_requirements.txt" -q
+        echo ""
+        local install_cmd="${python_bin} -m pip install -r \"${comfyui_path}/manager_requirements.txt\""
+        log_info "Running: $install_cmd"
+        echo ""
+        eval "$install_cmd"
 
         if [ $? -eq 0 ]; then
             log_success "Built-in ComfyUI Manager installed"
@@ -692,10 +709,10 @@ install_manager() {
     if [ -d "$manager_path" ]; then
         log_warning "ComfyUI-Manager already exists, updating..."
         cd "$manager_path" || exit 1
-        git pull origin main 2>&1 | tail -3
+        git pull origin main
         cd - > /dev/null
     else
-        if git clone --depth 1 "$MANAGER_REPO" "$manager_path" 2>&1; then
+        if git clone --depth 1 "$MANAGER_REPO" "$manager_path"; then
             log_success "ComfyUI-Manager cloned to custom_nodes/"
         else
             log_error "Failed to clone ComfyUI-Manager"
@@ -706,7 +723,11 @@ install_manager() {
     # Install manager dependencies if they exist
     if [ -f "${manager_path}/requirements.txt" ]; then
         log_info "Installing Manager dependencies..."
-        "$python_bin" -m pip install -r "${manager_path}/requirements.txt" -q
+        echo ""
+        local install_cmd="${python_bin} -m pip install -r \"${manager_path}/requirements.txt\""
+        log_info "Running: $install_cmd"
+        echo ""
+        eval "$install_cmd"
 
         if [ $? -eq 0 ]; then
             log_success "Manager dependencies installed"
