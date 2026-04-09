@@ -34,6 +34,7 @@ SHUTDOWN_REQUESTED=0
 SELECTED_VERSION=""
 PYTHON_PATH=""
 COMFY_PATH=""
+EXTRA_ARGS=""
 
 # ============================================
 # Functions
@@ -421,12 +422,14 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  --version VERSION   Launch specific version (e.g., v0.18)"
+    echo "  --args ARGUMENTS    Extra arguments to pass to ComfyUI (quote if multiple)"
     echo "  --list              List available versions and exit"
     echo "  --help              Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0                    # Interactive selection"
     echo "  $0 --version v0.18    # Launch specific version"
+    echo "  $0 --args '--listen'   # Pass --listen to ComfyUI"
     echo "  $0 --list             # List available versions"
 }
 
@@ -438,6 +441,10 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --version)
             SELECTED_VERSION="$2"
+            shift 2
+            ;;
+        --args)
+            EXTRA_ARGS="$2"
             shift 2
             ;;
         --list)
@@ -486,6 +493,11 @@ if [ -n "$ARGS" ]; then
 else
     echo -e "${BLUE}Manager Args:     ${YELLOW}(none - standalone or no manager)${NC}"
 fi
+
+# Show extra args if provided
+if [ -n "$EXTRA_ARGS" ]; then
+    echo -e "${BLUE}Extra Args:       ${CYAN}${EXTRA_ARGS}${NC}"
+fi
 echo ""
 
 # Clear old log file for fresh start
@@ -497,7 +509,9 @@ echo -e "${BLUE}[1/3] Starting ComfyUI Server...${NC}"
 cd "$COMFY_PATH" || exit 1
 
 # Use the python from the selected version's environment
-"${PYTHON_PATH}/bin/python3" "main.py" $ARGS > "$LOG_FILE" 2>&1 &
+# Combine manager args with extra user-provided args
+ALL_ARGS="$ARGS $EXTRA_ARGS"
+"${PYTHON_PATH}/bin/python3" "main.py" $ALL_ARGS > "$LOG_FILE" 2>&1 &
 
 SERVER_PID=$!
 echo -e "${GREEN}✓ Server started with PID: ${SERVER_PID}${NC}"
