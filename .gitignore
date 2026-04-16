@@ -10,7 +10,13 @@ workflows/*
 # Exclude everything in models folder
 models/*/*
 
-comfyui.log
+# Exclude .running_instances directory
+.running_instances/*
+!.running_instances/.gitkeep
+
+# Exclude .logs directory
+.logs/*
+!.logs/.gitkeep
 
 # But keep the existing config files in models
 !models/audio_encoders/put_audio_encoder_models_here

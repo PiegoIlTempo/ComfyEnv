@@ -5,6 +5,9 @@
 # ============================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSIONS_ROOT="${SCRIPT_DIR}/environments"
+DEFAULT_PORT=8188
+PORT_FILE_DIR="${SCRIPT_DIR}/.running_instances"
+LOG_DIR="${SCRIPT_DIR}/.logs"
 BROWSER_URL="http://127.0.0.1:8188"
 LOG_FILE="comfyui.log"
 
@@ -35,6 +38,9 @@ SELECTED_ENV=""
 PYTHON_PATH=""
 COMFY_PATH=""
 EXTRA_ARGS=""
+CUSTOM_PORT=""
+ACTUAL_PORT=$DEFAULT_PORT
+INSTANCE_LOG_FILE=""
 
 # ============================================
 # Functions
@@ -76,6 +82,56 @@ list_available_environments() {
     return 0
 }
 
+# Get port for a running environment (returns empty if not running)
+get_env_port() {
+    local env_name="$1"
+    
+    if [ ! -d "$PORT_FILE_DIR" ]; then
+        echo ""
+        return
+    fi
+    
+    for pid_file in "${PORT_FILE_DIR}"/port_*.pid; do
+        [ -f "$pid_file" ] || continue
+        
+        local port=$(basename "$pid_file" .pid | sed 's/port_//')
+        local running_env=$(cat "${PORT_FILE_DIR}/port_${port}.env" 2>/dev/null)
+        local pid=$(cat "$pid_file" 2>/dev/null)
+        
+        if [ "$running_env" = "$env_name" ] && [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            echo "$port"
+            return
+        fi
+    done
+    
+    echo ""
+}
+
+# Get PID for a running environment (returns empty if not running)
+get_env_pid() {
+    local env_name="$1"
+    
+    if [ ! -d "$PORT_FILE_DIR" ]; then
+        echo ""
+        return
+    fi
+    
+    for pid_file in "${PORT_FILE_DIR}"/port_*.pid; do
+        [ -f "$pid_file" ] || continue
+        
+        local port=$(basename "$pid_file" .pid | sed 's/port_//')
+        local running_env=$(cat "${PORT_FILE_DIR}/port_${port}.env" 2>/dev/null)
+        local pid=$(cat "$pid_file" 2>/dev/null)
+        
+        if [ "$running_env" = "$env_name" ] && [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            echo "$pid"
+            return
+        fi
+    done
+    
+    echo ""
+}
+
 display_environment_menu() {
     local envs=($(list_available_environments))
 
@@ -96,9 +152,9 @@ display_environment_menu() {
     echo -e "${CYAN}========================================${NC}"
     echo ""
     
-    # Print header
-    printf "%2s %-18s %-10s %-10s %s\n" "#" "ENVIRONMENT" "CREATED" "LAST EDIT" "STATUS"
-    printf "%2s %-18s %-10s %-10s %s\n" "#" "-----------" "-------" "---------" "------"
+    # Print header with running status columns
+    printf "%2s %-18s %-6s %-10s %-10s %-10s %s\n" "#" "ENVIRONMENT" "PORT" "PID" "CREATED" "LAST EDIT" "STATUS"
+    printf "%2s %-18s %-6s %-10s %-10s %-10s %s\n" "#" "-----------" "----" "---" "-------" "---------" "------"
 
     for i in "${!envs[@]}"; do
         local env="${envs[$i]}"
@@ -112,16 +168,23 @@ display_environment_menu() {
             break
         done < <(find "${VERSIONS_ROOT}/${env}" -maxdepth 1 -type d -name "python_*" -print0)
 
-        local status="✓"
-        if [ ! -d "$comfy_path" ]; then
-            status="✗ (no comfyui)"
+        # Get running info
+        local port_info="-"
+        local pid_info="-"
+        local status="stopped"
+        local running_port=$(get_env_port "$env")
+        local running_pid=$(get_env_pid "$env")
+        if [ -n "$running_port" ]; then
+            port_info="$running_port"
+            pid_info="$running_pid"
+            status="✓ Running"
         fi
         
         # Get dates
         local created=$(get_creation_date "$env_path")
         local edited=$(get_last_edit_date "$env_path")
 
-        printf "%2d %-18s %-10s %-10s %s\n" $((i+1)) "$env" "$created" "$edited" "${status}"
+        printf "%2d %-18s %-6s %-10s %-10s %-10s %s\n" $((i+1)) "$env" "$port_info" "$pid_info" "$created" "$edited" "$status"
     done
 
     echo ""
@@ -350,6 +413,11 @@ cleanup() {
         wait "$SERVER_PID" 2>/dev/null
     fi
 
+    # Unregister this instance from tracking
+    if [ -n "$ACTUAL_PORT" ]; then
+        unregister_instance "$ACTUAL_PORT"
+    fi
+
     # Clean up profile directory
     if [ -d "$PROFILE_DIR" ]; then
         echo -e "${BLUE}Cleaning up temporary profile...${NC}"
@@ -445,15 +513,149 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  --env ENVIRONMENT   Launch specific environment (e.g., v0.18)"
+    echo "  --port PORT         Use specific port (default: auto-select from $DEFAULT_PORT+)"
     echo "  --args ARGUMENTS    Extra arguments to pass to ComfyUI (quote if multiple)"
-    echo "  --list              List available environments and exit"
+    echo "  --list              List available environments with running status and exit"
     echo "  --help              Show this help message"
     echo ""
     echo "Examples:"
-    echo "  $0                    # Interactive selection"
+    echo "  $0                    # Interactive selection, auto port"
     echo "  $0 --env v0.18        # Launch specific environment"
+    echo "  $0 --port 9000        # Use port 9000 (or next available)"
     echo "  $0 --args '--listen'   # Pass --listen to ComfyUI"
-    echo "  $0 --list             # List available environments"
+    echo "  $0 --list             # List available environments with status"
+}
+
+# Get next available port starting from DEFAULT_PORT
+get_available_port() {
+    local requested_port="$1"
+    
+    # If a specific port was requested, check if it's available
+    if [ -n "$requested_port" ]; then
+        if is_port_in_use "$requested_port"; then
+            echo -e "${RED}✗ Port $requested_port is already in use${NC}"
+            return 1
+        fi
+        echo "$requested_port"
+        return 0
+    fi
+    
+    # Auto-increment: find first available port starting from DEFAULT_PORT
+    local port=$DEFAULT_PORT
+    while is_port_in_use "$port"; do
+        port=$((port + 1))
+        # Safety limit - don't go beyond port 65535
+        if [ $port -gt 65535 ]; then
+            echo -e "${RED}✗ No available ports found${NC}"
+            return 1
+        fi
+    done
+    echo "$port"
+    return 0
+}
+
+# Check if a port is currently in use by checking PID files or network
+is_port_in_use() {
+    local port="$1"
+    
+    # Method 1: Check PID file
+    if [ -f "${PORT_FILE_DIR}/port_${port}.pid" ]; then
+        local pid=$(cat "${PORT_FILE_DIR}/port_${port}.pid" 2>/dev/null)
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            return 0  # Port is in use
+        fi
+    fi
+    
+    # Method 2: Check network socket (more reliable)
+    if command -v ss &>/dev/null; then
+        ss -tuln 2>/dev/null | grep -q ":${port} "
+        return $?
+    elif command -v netstat &>/dev/null; then
+        netstat -tuln 2>/dev/null | grep -q ":${port} "
+        return $?
+    fi
+    
+    return 1  # Port is available
+}
+
+# List all running ComfyUI instances
+list_running_instances() {
+    echo ""
+    echo -e "${CYAN}========================================${NC}"
+    echo -e "${CYAN}   Running ComfyUI Instances${NC}"
+    echo -e "${CYAN}========================================${NC}"
+    echo ""
+    
+    # Check if port file directory exists
+    if [ ! -d "$PORT_FILE_DIR" ]; then
+        echo -e "${YELLOW}No running instances found.${NC}"
+        return 0
+    fi
+    
+    local count=0
+    printf "%-6s %-12s %-25s %s\n" "PORT" "PID" "ENVIRONMENT" "STATUS"
+    printf "%-6s %-12s %-25s %s\n" "----" "---" "-----------" "------"
+    
+    # Check all port PID files
+    for pid_file in "${PORT_FILE_DIR}"/port_*.pid; do
+        [ -f "$pid_file" ] || continue
+        
+        local port=$(basename "$pid_file" .pid | sed 's/port_//')
+        local pid=$(cat "$pid_file" 2>/dev/null)
+        local env_name=$(cat "${PORT_FILE_DIR}/port_${port}.env" 2>/dev/null || echo "unknown")
+        
+        if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+            printf "%-6s %-12s %-25s %s\n" "$port" "$pid" "$env_name" "✓ Running"
+            count=$((count + 1))
+        else
+            # Stale PID file - process not running
+            printf "%-6s %-12s %-25s %s\n" "$port" "$pid" "$env_name" "✗ Stale"
+        fi
+    done
+    
+    echo ""
+    if [ $count -eq 0 ]; then
+        echo -e "${YELLOW}No running instances found.${NC}"
+    else
+        echo -e "Found ${GREEN}$count${NC} running instance(s)"
+    fi
+}
+
+# Clean up stale PID files
+cleanup_stale_pids() {
+    if [ ! -d "$PORT_FILE_DIR" ]; then
+        return 0
+    fi
+    
+    for pid_file in "${PORT_FILE_DIR}"/port_*.pid; do
+        [ -f "$pid_file" ] || continue
+        
+        local port=$(basename "$pid_file" .pid | sed 's/port_//')
+        local pid=$(cat "$pid_file" 2>/dev/null)
+        
+        if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+            # Process not running, remove stale files
+            rm -f "$pid_file" "${PORT_FILE_DIR}/port_${port}.env" 2>/dev/null
+        fi
+    done
+}
+
+# Register this instance's port and PID
+register_instance() {
+    local port="$1"
+    local env_name="$2"
+    local pid="$3"
+    
+    mkdir -p "$PORT_FILE_DIR"
+    echo "$pid" > "${PORT_FILE_DIR}/port_${port}.pid"
+    echo "$env_name" > "${PORT_FILE_DIR}/port_${port}.env"
+}
+
+# Unregister this instance's port and PID
+unregister_instance() {
+    local port="$1"
+    
+    rm -f "${PORT_FILE_DIR}/port_${port}.pid" "${PORT_FILE_DIR}/port_${port}.env" 2>/dev/null
 }
 
 # ============================================
@@ -472,6 +674,10 @@ while [[ $# -gt 0 ]]; do
             SELECTED_ENV="$2"
             shift 2
             ;;
+        --port)
+            CUSTOM_PORT="$2"
+            shift 2
+            ;;
         --args)
             EXTRA_ARGS="$2"
             shift 2
@@ -480,16 +686,29 @@ while [[ $# -gt 0 ]]; do
             echo "Available environments:"
             echo ""
             
-            # Print header
-            printf "%-20s %-12s %-12s\n" "ENVIRONMENT" "CREATED" "LAST EDIT"
-            printf "%-20s %-12s %-12s\n" "-----------" "-------" "---------"
+            # Print header with running status columns
+            printf "%-20s %-6s %-10s %-12s %-12s %s\n" "ENVIRONMENT" "PORT" "PID" "CREATED" "LAST EDIT" "STATUS"
+            printf "%-20s %-6s %-10s %-12s %-12s %s\n" "-----------" "----" "---" "-------" "---------" "------"
             
-            # List environments with dates
+            # List environments with dates and running status
             list_available_environments | while read -r env; do
                 env_path="${VERSIONS_ROOT}/${env}"
                 created=$(get_creation_date "$env_path")
                 edited=$(get_last_edit_date "$env_path")
-                printf "%-20s %-12s %-12s\n" "$env" "$created" "$edited"
+                
+                # Get running info
+                port_info="-"
+                pid_info="-"
+                status="stopped"
+                running_port=$(get_env_port "$env")
+                running_pid=$(get_env_pid "$env")
+                if [ -n "$running_port" ]; then
+                    port_info="$running_port"
+                    pid_info="$running_pid"
+                    status="✓ Running"
+                fi
+                
+                printf "%-20s %-6s %-10s %-12s %-12s %s\n" "$env" "$port_info" "$pid_info" "$created" "$edited" "$status"
             done
             
             exit 0
@@ -515,6 +734,9 @@ echo -e "${YELLOW}   ComfyUI Auto-Start Script${NC}"
 echo -e "${YELLOW}========================================${NC}"
 echo ""
 
+# Clean up any stale PID files from previous crashed sessions
+cleanup_stale_pids
+
 # Select environment if not specified via command line
 if [ -z "$SELECTED_ENV" ]; then
     select_environment
@@ -523,9 +745,27 @@ fi
 # Validate and set paths for selected environment
 validate_environment "$SELECTED_ENV"
 
+# Check if this environment is already running
+existing_port=$(get_env_port "$SELECTED_ENV")
+if [ -n "$existing_port" ]; then
+    echo -e "${RED}✗ Environment '${SELECTED_ENV}' is already running on port ${existing_port}${NC}"
+    echo -e "${YELLOW}Use Ctrl+C to stop the existing instance, or use a different environment.${NC}"
+    exit 1
+fi
+
+# Determine which port to use
+ACTUAL_PORT=$(get_available_port "$CUSTOM_PORT")
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
+# Update browser URL with actual port
+BROWSER_URL="http://127.0.0.1:${ACTUAL_PORT}"
+
 echo -e "${BLUE}Selected Environment: ${GREEN}${SELECTED_ENV}${NC}"
 echo -e "${BLUE}ComfyUI Path:     ${CYAN}${COMFY_PATH}${NC}"
 echo -e "${BLUE}Python Env:       ${CYAN}${PYTHON_PATH}${NC}"
+echo -e "${BLUE}Port:           ${GREEN}${ACTUAL_PORT}${NC}"
 
 # Show manager status
 if [ -n "$ARGS" ]; then
@@ -538,23 +778,40 @@ fi
 if [ -n "$EXTRA_ARGS" ]; then
     echo -e "${BLUE}Extra Args:       ${CYAN}${EXTRA_ARGS}${NC}"
 fi
+
+# Show port info
+if [ -n "$CUSTOM_PORT" ]; then
+    echo -e "${BLUE}Port Mode:        ${GREEN}User-specified ($CUSTOM_PORT)${NC}"
+else
+    if [ $ACTUAL_PORT -eq $DEFAULT_PORT ]; then
+        echo -e "${BLUE}Port Mode:        ${GREEN}Default ($DEFAULT_PORT)${NC}"
+    else
+        echo -e "${BLUE}Port Mode:        ${YELLOW}Auto-selected (ports $DEFAULT_PORT-$((ACTUAL_PORT-1)) in use)${NC}"
+    fi
+fi
 echo ""
 
 # Clear old log file for fresh start
-> "$LOG_FILE"
+# Create unique log file per instance in .logs directory
+mkdir -p "$LOG_DIR"
+INSTANCE_LOG_FILE="${LOG_DIR}/${SELECTED_ENV}_port_${ACTUAL_PORT}.log"
+> "$INSTANCE_LOG_FILE"
 
-echo -e "${BLUE}[1/3] Starting ComfyUI Server...${NC}"
+echo -e "${BLUE}[1/3] Starting ComfyUI Server on port ${ACTUAL_PORT}...${NC}"
 
 # Launch the Python script in background, redirecting output to log file
 cd "$COMFY_PATH" || exit 1
 
 # Use the python from the selected environment's Python installation
-# Combine manager args with extra user-provided args
-ALL_ARGS="$ARGS $EXTRA_ARGS"
-"${PYTHON_PATH}/bin/python3" "main.py" $ALL_ARGS > "$LOG_FILE" 2>&1 &
+# Combine manager args with extra user-provided args and port
+ALL_ARGS="$ARGS --port $ACTUAL_PORT $EXTRA_ARGS"
+"${PYTHON_PATH}/bin/python3" "main.py" $ALL_ARGS > "$INSTANCE_LOG_FILE" 2>&1 &
 
 SERVER_PID=$!
 echo -e "${GREEN}✓ Server started with PID: ${SERVER_PID}${NC}"
+
+# Register this instance for tracking
+register_instance "$ACTUAL_PORT" "$SELECTED_ENV" "$SERVER_PID"
 
 # Wait for server to be ready (with timeout) - SHOWING LOGS IN REALTIME
 echo -e "${BLUE}[2/3] Waiting for server to initialize...${NC}"
@@ -566,12 +823,12 @@ LAST_LINE_COUNT=0
 
 while ! curl --silent --output /dev/null --fail "$BROWSER_URL" 2>/dev/null; do
     # Show new log lines in real-time during startup
-    if [ -f "$LOG_FILE" ]; then
-        CURRENT_LINES=$(wc -l < "$LOG_FILE" 2>/dev/null || echo "0")
+    if [ -f "$INSTANCE_LOG_FILE" ]; then
+        CURRENT_LINES=$(wc -l < "$INSTANCE_LOG_FILE" 2>/dev/null || echo "0")
 
         if [ "$CURRENT_LINES" -gt "$LAST_LINE_COUNT" ]; then
             # Show only new lines
-            tail -n +"$((LAST_LINE_COUNT + 1))" "$LOG_FILE" | \
+            tail -n +"$((LAST_LINE_COUNT + 1))" "$INSTANCE_LOG_FILE" | \
                 while IFS= read -r line; do
                     case "$line" in
                         *"ERROR"*|*"Exception"*) echo -e "${RED}${line}${NC}" ;;
@@ -628,6 +885,11 @@ while true; do
                 wait "$SERVER_PID" 2>/dev/null
             fi
 
+            # Unregister this instance from tracking
+            if [ -n "$ACTUAL_PORT" ]; then
+                unregister_instance "$ACTUAL_PORT"
+            fi
+
             # Clean up profile directory
             if [ -d "$PROFILE_DIR" ]; then
                 echo -e "${BLUE}Cleaning up temporary profile...${NC}"
@@ -640,12 +902,12 @@ while true; do
     fi
 
     # Display only NEW log lines with colorization (avoid printing same line repeatedly)
-    if [ -f "$LOG_FILE" ]; then
-        CURRENT_LINES=$(wc -l < "$LOG_FILE" 2>/dev/null || echo "0")
+    if [ -f "$INSTANCE_LOG_FILE" ]; then
+        CURRENT_LINES=$(wc -l < "$INSTANCE_LOG_FILE" 2>/dev/null || echo "0")
 
         if [ "$CURRENT_LINES" -gt "$LAST_LINE_COUNT" ]; then
             # Show only new lines since last check
-            tail -n +"$((LAST_LINE_COUNT + 1))" "$LOG_FILE" | \
+            tail -n +"$((LAST_LINE_COUNT + 1))" "$INSTANCE_LOG_FILE" | \
                 while IFS= read -r line; do
                     case "$line" in
                         *"ERROR"*|*"Exception"*) echo -e "${RED}${line}${NC}" ;;

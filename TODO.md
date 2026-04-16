@@ -23,33 +23,4 @@
 
 ---
 
-### 5. Run Multiple ComfyUI Instances on Different Ports ✅
-- **Goal**: Start multiple ComfyUI environments simultaneously on different ports
-- **Benefit**:
-  - Compare versions side-by-side in browser
-  - Test workflows across different setups at once
-  - No need to stop/start between switching versions
-- **Implementation**:
-  - Add `--port PORT` option to start script
-  - Auto-increment port if not specified (default: 8188, then 8189, 8190...)
-  - Track running instances with PID files
-  - Add `--list-running` to see active instances
-  - Example:
-    ```bash
-    ./start_comfy.sh v0.3.62 --port 8188
-    ./start_comfy.sh v0.18.0 --port 8189
-    ```
-
----
-
-## Future Ideas (Not Yet Planned)
-
-- [ ] Batch install multiple versions at once
-- [ ] Update command to upgrade specific environments
-- [ ] Export/import environment configurations
-- [ ] GUI interface?
-- [ ] Integration with ComfyUI custom node managers
-
----
-
 *Last updated: $(date +%Y-%m-%d)*
