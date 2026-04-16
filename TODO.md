@@ -2,20 +2,6 @@
 
 ## Planned Features
 
-### 2. Symlink for Outputs and Inputs Folders ✅
-- **Goal**: Centralize outputs/inputs across all environments
-- **Benefit**: 
-  - Easy access to generated images from any version
-  - Share input images between different setups
-  - Prevents clutter in each environment folder
-- **Implementation**:
-  - Add options: `--output-dir PATH`, `--input-dir PATH`
-  - Default: `./outputs/<env-name>/` and `./inputs/<env-name>/`
-  - Create symlinks inside ComfyUI instances
-- **Note**: May need to update ComfyUI config files to point to these locations
-
----
-
 ### 3. Global Default ComfyUI Settings for New Environments ✅
 - **Goal**: Apply custom ComfyUI settings automatically when creating new environments
 - **Benefit**: 

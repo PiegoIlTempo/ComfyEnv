@@ -328,6 +328,120 @@ clone_environment() {
         fi
     fi
     
+    # Clone inputs folder from source to target in central inputs directory
+    local source_inputs="${SCRIPT_DIR}/inputs/${source_env}"
+    local target_inputs="${SCRIPT_DIR}/inputs/${target_env}"
+    
+    if [ -d "$source_inputs" ]; then
+        log_info "Cloning inputs folder: $source_env → $target_env"
+        mkdir -p "$(dirname "$target_inputs")"
+        
+        if command -v rsync &>/dev/null; then
+            rsync -av "$source_inputs/" "$target_inputs/"
+        else
+            cp -rL "$source_inputs" "$target_inputs"
+        fi
+        
+        if [ $? -eq 0 ]; then
+            log_success "Inputs folder cloned to: $target_inputs"
+        else
+            log_warning "Failed to clone inputs folder"
+        fi
+    elif [ -L "$source_inputs" ]; then
+        local real_source=$(readlink -f "$source_inputs")
+        if [ -d "$real_source" ]; then
+            log_info "Cloning inputs folder from symlinked location: $source_env → $target_env"
+            mkdir -p "$(dirname "$target_inputs")"
+            
+            if command -v rsync &>/dev/null; then
+                rsync -av "$real_source/" "$target_inputs/"
+            else
+                cp -rL "$real_source" "$target_inputs"
+            fi
+            
+            if [ $? -eq 0 ]; then
+                log_success "Inputs folder cloned to: $target_inputs"
+            else
+                log_warning "Failed to clone inputs folder"
+            fi
+        fi
+    else
+        log_info "No inputs folder found for source environment, creating empty one"
+        mkdir -p "$target_inputs"
+    fi
+    
+    # Fix the input symlink in the cloned environment
+    local internal_inputs="${target_comfyui}/input"
+    
+    if [ -L "$internal_inputs" ]; then
+        log_info "Updating input symlink for cloned environment..."
+        rm "$internal_inputs"
+        ln -s "$target_inputs" "$internal_inputs"
+        
+        if [ $? -eq 0 ]; then
+            log_success "Input symlink updated: $internal_inputs → $target_inputs"
+        else
+            log_error "Failed to update input symlink"
+        fi
+    fi
+    
+    # Clone outputs folder from source to target in central outputs directory
+    local source_outputs="${SCRIPT_DIR}/outputs/${source_env}"
+    local target_outputs="${SCRIPT_DIR}/outputs/${target_env}"
+    
+    if [ -d "$source_outputs" ]; then
+        log_info "Cloning outputs folder: $source_env → $target_env"
+        mkdir -p "$(dirname "$target_outputs")"
+        
+        if command -v rsync &>/dev/null; then
+            rsync -av "$source_outputs/" "$target_outputs/"
+        else
+            cp -rL "$source_outputs" "$target_outputs"
+        fi
+        
+        if [ $? -eq 0 ]; then
+            log_success "Outputs folder cloned to: $target_outputs"
+        else
+            log_warning "Failed to clone outputs folder"
+        fi
+    elif [ -L "$source_outputs" ]; then
+        local real_source=$(readlink -f "$source_outputs")
+        if [ -d "$real_source" ]; then
+            log_info "Cloning outputs folder from symlinked location: $source_env → $target_env"
+            mkdir -p "$(dirname "$target_outputs")"
+            
+            if command -v rsync &>/dev/null; then
+                rsync -av "$real_source/" "$target_outputs/"
+            else
+                cp -rL "$real_source" "$target_outputs"
+            fi
+            
+            if [ $? -eq 0 ]; then
+                log_success "Outputs folder cloned to: $target_outputs"
+            else
+                log_warning "Failed to clone outputs folder"
+            fi
+        fi
+    else
+        log_info "No outputs folder found for source environment, creating empty one"
+        mkdir -p "$target_outputs"
+    fi
+    
+    # Fix the output symlink in the cloned environment
+    local internal_outputs="${target_comfyui}/output"
+    
+    if [ -L "$internal_outputs" ]; then
+        log_info "Updating output symlink for cloned environment..."
+        rm "$internal_outputs"
+        ln -s "$target_outputs" "$internal_outputs"
+        
+        if [ $? -eq 0 ]; then
+            log_success "Output symlink updated: $internal_outputs → $target_outputs"
+        else
+            log_error "Failed to update output symlink"
+        fi
+    fi
+    
     log_success "Environment cloned successfully: $source_env → $target_env"
     return 0
 }
@@ -875,6 +989,106 @@ create_workflow_symlinks() {
     fi
 }
 
+create_input_symlinks() {
+    local version_dir="$1"
+    local env_name=$(basename "$version_dir")
+
+    # Define paths
+    local central_inputs="${SCRIPT_DIR}/inputs/${env_name}"
+    local comfyui_path="${version_dir}/comfyui"
+    local internal_inputs="${comfyui_path}/input"
+
+    log_info "Setting up input symlinks for: $env_name"
+
+    # Step 1: Create central inputs directory if it doesn't exist
+    if [ ! -d "$central_inputs" ]; then
+        mkdir -p "$central_inputs"
+        log_success "Created central inputs directory: $central_inputs"
+    fi
+
+    # Step 2: Create internal inputs directory structure (needed for first run)
+    if [ ! -d "${internal_inputs}" ]; then
+        mkdir -p "${internal_inputs}"
+        log_info "Created internal inputs directory structure"
+    fi
+
+    # Step 3: Remove existing internal inputs if it's a real directory (not symlink)
+    if [ -d "$internal_inputs" ] && [ ! -L "$internal_inputs" ]; then
+        log_warning "Existing inputs directory found, moving contents to central location..."
+        # Move any existing files to central location first
+        if [ "$(ls -A "$internal_inputs" 2>/dev/null)" ]; then
+            mv "$internal_inputs"/* "$central_inputs/" 2>/dev/null
+            mv "$internal_inputs"/.[!.]* "$central_inputs/" 2>/dev/null
+        fi
+        rmdir "$internal_inputs" 2>/dev/null
+    fi
+
+    # Step 4: Remove existing symlink if present
+    if [ -L "$internal_inputs" ]; then
+        log_info "Removing existing input symlink..."
+        rm "$internal_inputs"
+    fi
+
+    # Step 5: Create fresh symlink pointing to central inputs
+    ln -s "$central_inputs" "$internal_inputs"
+    
+    if [ $? -eq 0 ]; then
+        log_success "Inputs symlinked: $internal_inputs → $central_inputs"
+    else
+        log_error "Failed to create input symlink"
+    fi
+}
+
+create_output_symlinks() {
+    local version_dir="$1"
+    local env_name=$(basename "$version_dir")
+
+    # Define paths
+    local central_outputs="${SCRIPT_DIR}/outputs/${env_name}"
+    local comfyui_path="${version_dir}/comfyui"
+    local internal_outputs="${comfyui_path}/output"
+
+    log_info "Setting up output symlinks for: $env_name"
+
+    # Step 1: Create central outputs directory if it doesn't exist
+    if [ ! -d "$central_outputs" ]; then
+        mkdir -p "$central_outputs"
+        log_success "Created central outputs directory: $central_outputs"
+    fi
+
+    # Step 2: Create internal outputs directory structure (needed for first run)
+    if [ ! -d "${internal_outputs}" ]; then
+        mkdir -p "${internal_outputs}"
+        log_info "Created internal outputs directory structure"
+    fi
+
+    # Step 3: Remove existing internal outputs if it's a real directory (not symlink)
+    if [ -d "$internal_outputs" ] && [ ! -L "$internal_outputs" ]; then
+        log_warning "Existing outputs directory found, moving contents to central location..."
+        # Move any existing files to central location first
+        if [ "$(ls -A "$internal_outputs" 2>/dev/null)" ]; then
+            mv "$internal_outputs"/* "$central_outputs/" 2>/dev/null
+            mv "$internal_outputs"/.[!.]* "$central_outputs/" 2>/dev/null
+        fi
+        rmdir "$internal_outputs" 2>/dev/null
+    fi
+
+    # Step 4: Remove existing symlink if present
+    if [ -L "$internal_outputs" ]; then
+        log_info "Removing existing output symlink..."
+        rm "$internal_outputs"
+    fi
+
+    # Step 5: Create fresh symlink pointing to central outputs
+    ln -s "$central_outputs" "$internal_outputs"
+    
+    if [ $? -eq 0 ]; then
+        log_success "Outputs symlinked: $internal_outputs → $central_outputs"
+    else
+        log_error "Failed to create output symlink"
+    fi
+}
+
 show_completion_summary() {
     local version_dir="$1"
     local comfyui_version="$2"
@@ -1168,6 +1382,12 @@ main() {
 
     # Step 11: Create workflow symlinks
     create_workflow_symlinks "$version_dir"
+
+    # Step 12: Create input symlinks
+    create_input_symlinks "$version_dir"
+
+    # Step 13: Create output symlinks
+    create_output_symlinks "$version_dir"
 
     # Show completion summary
     show_completion_summary "$version_dir" "$target_version" "$python_ver"

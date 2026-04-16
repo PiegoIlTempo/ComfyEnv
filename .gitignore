@@ -45,3 +45,11 @@ comfyui.log
 !models/vae_approx/put_taesd_encoder_pth_and_taesd_decoder_pth_here
 
 .continue/*
+
+# Exclude inputs directory
+inputs/*
+!inputs/.gitkeep
+
+# Exclude outputs directory
+outputs/*
+!outputs/.gitkeep
