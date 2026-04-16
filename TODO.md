@@ -2,16 +2,6 @@
 
 ## Planned Features
 
-### 1. Symlink for Internal Workflow Folders ✅
-- **Goal**: Create symlinks from each ComfyUI version's internal `workflows/` folder to a central location
-- **Benefit**: Workflows remain accessible even if you delete/rename environments
-- **Implementation**: 
-  - Add option during install: `--workflow-dir PATH`
-  - Default: `./workflows/<env-name>/`
-  - Create symlink inside each ComfyUI instance pointing to this location
-
----
-
 ### 2. Symlink for Outputs and Inputs Folders ✅
 - **Goal**: Centralize outputs/inputs across all environments
 - **Benefit**: 
