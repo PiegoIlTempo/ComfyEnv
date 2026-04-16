@@ -31,7 +31,7 @@ NC='\033[0m'
 SERVER_PID=""
 BROWSER_PID=""
 SHUTDOWN_REQUESTED=0
-SELECTED_VERSION=""
+SELECTED_ENV=""
 PYTHON_PATH=""
 COMFY_PATH=""
 EXTRA_ARGS=""
@@ -53,64 +53,64 @@ get_last_edit_date() {
     stat -c %y "$path" 2>/dev/null | cut -d' ' -f1
 }
 
-list_available_versions() {
-    local versions=()
+list_available_environments() {
+    local envs=()
 
     if [ ! -d "$VERSIONS_ROOT" ]; then
-        echo -e "${RED}✗ Versions directory not found: ${VERSIONS_ROOT}${NC}"
+        echo -e "${RED}✗ Environments directory not found: ${VERSIONS_ROOT}${NC}"
         return 1
     fi
 
-    # Find all version directories (directories directly under comfy_versions)
+    # Find all environment directories (directories directly under comfy_versions)
     while IFS= read -r -d '' dir; do
         local name=$(basename "$dir")
-        versions+=("$name")
+        envs+=("$name")
     done < <(find "$VERSIONS_ROOT" -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
 
-    if [ ${#versions[@]} -eq 0 ]; then
-        echo -e "${RED}✗ No versions found in: ${VERSIONS_ROOT}${NC}"
+    if [ ${#envs[@]} -eq 0 ]; then
+        echo -e "${RED}✗ No environments found in: ${VERSIONS_ROOT}${NC}"
         return 1
     fi
 
-    printf '%s\n' "${versions[@]}"
+    printf '%s\n' "${envs[@]}"
     return 0
 }
 
-display_version_menu() {
-    local versions=($(list_available_versions))
+display_environment_menu() {
+    local envs=($(list_available_environments))
 
-    if [ ${#versions[@]} -eq 0 ]; then
-        echo -e "${RED}✗ No versions available!${NC}"
+    if [ ${#envs[@]} -eq 0 ]; then
+        echo -e "${RED}✗ No environments available!${NC}"
         exit 1
     fi
 
-    # If only one version, use it automatically
-    if [ ${#versions[@]} -eq 1 ]; then
-        SELECTED_VERSION="${versions[0]}"
+    # If only one environment, use it automatically
+    if [ ${#envs[@]} -eq 1 ]; then
+        SELECTED_ENV="${envs[0]}"
         return 0
     fi
 
     echo ""
     echo -e "${CYAN}========================================${NC}"
-    echo -e "${CYAN}   Select ComfyUI Version to Launch${NC}"
+    echo -e "${CYAN}   Select ComfyUI Environment to Launch${NC}"
     echo -e "${CYAN}========================================${NC}"
     echo ""
     
     # Print header
-    printf "%2s %-18s %-10s %-10s %s\n" "#" "VERSION" "CREATED" "LAST EDIT" "STATUS"
-    printf "%2s %-18s %-10s %-10s %s\n" "#" "-------" "-------" "---------" "------"
+    printf "%2s %-18s %-10s %-10s %s\n" "#" "ENVIRONMENT" "CREATED" "LAST EDIT" "STATUS"
+    printf "%2s %-18s %-10s %-10s %s\n" "#" "-----------" "-------" "---------" "------"
 
-    for i in "${!versions[@]}"; do
-        local ver="${versions[$i]}"
-        local comfy_path="${VERSIONS_ROOT}/${ver}/comfyui"
+    for i in "${!envs[@]}"; do
+        local env="${envs[$i]}"
+        local comfy_path="${VERSIONS_ROOT}/${env}/comfyui"
         local python_dir=""
-        local version_path="${VERSIONS_ROOT}/${ver}"
+        local env_path="${VERSIONS_ROOT}/${env}"
 
-        # Find the python directory for this version
+        # Find the python directory for this environment
         while IFS= read -r -d '' pydir; do
             python_dir=$(basename "$pydir")
             break
-        done < <(find "${VERSIONS_ROOT}/${ver}" -maxdepth 1 -type d -name "python_*" -print0)
+        done < <(find "${VERSIONS_ROOT}/${env}" -maxdepth 1 -type d -name "python_*" -print0)
 
         local status="✓"
         if [ ! -d "$comfy_path" ]; then
@@ -118,34 +118,34 @@ display_version_menu() {
         fi
         
         # Get dates
-        local created=$(get_creation_date "$version_path")
-        local edited=$(get_last_edit_date "$version_path")
+        local created=$(get_creation_date "$env_path")
+        local edited=$(get_last_edit_date "$env_path")
 
-        printf "%2d %-18s %-10s %-10s %s\n" $((i+1)) "$ver" "$created" "$edited" "${status}"
+        printf "%2d %-18s %-10s %-10s %s\n" $((i+1)) "$env" "$created" "$edited" "${status}"
     done
 
     echo ""
 }
 
-select_version() {
-    local versions=($(list_available_versions))
+select_environment() {
+    local envs=($(list_available_environments))
 
-    if [ ${#versions[@]} -eq 0 ]; then
+    if [ ${#envs[@]} -eq 0 ]; then
         exit 1
     fi
 
-    # If only one version, use it automatically
-    if [ ${#versions[@]} -eq 1 ]; then
-        SELECTED_VERSION="${versions[0]}"
-        echo -e "${BLUE}Only one version found, using: ${GREEN}${SELECTED_VERSION}${NC}"
+    # If only one environment, use it automatically
+    if [ ${#envs[@]} -eq 1 ]; then
+        SELECTED_ENV="${envs[0]}"
+        echo -e "${BLUE}Only one environment found, using: ${GREEN}${SELECTED_ENV}${NC}"
         return 0
     fi
 
-    display_version_menu
+    display_environment_menu
 
     # Read user selection
     while true; do
-        read -p "Enter version number [1-${#versions[@]}]: " choice
+        read -p "Enter environment number [1-${#envs[@]}]: " choice
 
         # Validate input is a number
         if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
@@ -156,27 +156,27 @@ select_version() {
         # Convert to array index (1-based to 0-based)
         local idx=$((choice - 1))
 
-        if [ "$idx" -lt 0 ] || [ "$idx" -ge ${#versions[@]} ]; then
-            echo -e "${RED}✗ Invalid selection. Please choose between 1 and ${#versions[@]}.${NC}"
+        if [ "$idx" -lt 0 ] || [ "$idx" -ge ${#envs[@]} ]; then
+            echo -e "${RED}✗ Invalid selection. Please choose between 1 and ${#envs[@]}.${NC}"
             continue
         fi
 
-        SELECTED_VERSION="${versions[$idx]}"
+        SELECTED_ENV="${envs[$idx]}"
         break
     done
 
     echo ""
 }
 
-validate_version() {
-    local version="$1"
+validate_environment() {
+    local env="$1"
 
-    COMFY_PATH="${VERSIONS_ROOT}/${version}/comfyui"
+    COMFY_PATH="${VERSIONS_ROOT}/${env}/comfyui"
 
     # Find python directory (python_*) - find already returns full path!
     while IFS= read -r -d '' PYTHON_PATH; do
         break
-    done < <(find "${VERSIONS_ROOT}/${version}" -maxdepth 1 -type d -name "python_*" -print0)
+    done < <(find "${VERSIONS_ROOT}/${env}" -maxdepth 1 -type d -name "python_*" -print0)
 
     # Validate paths exist
     if [ ! -d "$COMFY_PATH" ]; then
@@ -185,7 +185,7 @@ validate_version() {
     fi
 
     if [ -z "$PYTHON_PATH" ] || [ ! -d "$PYTHON_PATH" ]; then
-        echo -e "${RED}✗ Python environment not found in version: ${version}${NC}"
+        echo -e "${RED}✗ Python environment not found in environment: ${env}${NC}"
         exit 1
     fi
 
@@ -444,16 +444,16 @@ show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  --version VERSION   Launch specific version (e.g., v0.18)"
+    echo "  --env ENVIRONMENT   Launch specific environment (e.g., v0.18)"
     echo "  --args ARGUMENTS    Extra arguments to pass to ComfyUI (quote if multiple)"
-    echo "  --list              List available versions and exit"
+    echo "  --list              List available environments and exit"
     echo "  --help              Show this help message"
     echo ""
     echo "Examples:"
     echo "  $0                    # Interactive selection"
-    echo "  $0 --version v0.18    # Launch specific version"
+    echo "  $0 --env v0.18        # Launch specific environment"
     echo "  $0 --args '--listen'   # Pass --listen to ComfyUI"
-    echo "  $0 --list             # List available versions"
+    echo "  $0 --list             # List available environments"
 }
 
 # ============================================
@@ -462,8 +462,14 @@ show_help() {
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --env)
+            SELECTED_ENV="$2"
+            shift 2
+            ;;
         --version)
-            SELECTED_VERSION="$2"
+            # Deprecated, but kept for backward compatibility
+            echo -e "${YELLOW}⚠ Warning: --version is deprecated. Use --env instead.${NC}"
+            SELECTED_ENV="$2"
             shift 2
             ;;
         --args)
@@ -471,19 +477,19 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --list)
-            echo "Available versions:"
+            echo "Available environments:"
             echo ""
             
             # Print header
-            printf "%-20s %-12s %-12s\n" "VERSION" "CREATED" "LAST EDIT"
-            printf "%-20s %-12s %-12s\n" "-------" "-------" "---------"
+            printf "%-20s %-12s %-12s\n" "ENVIRONMENT" "CREATED" "LAST EDIT"
+            printf "%-20s %-12s %-12s\n" "-----------" "-------" "---------"
             
-            # List versions with dates
-            list_available_versions | while read -r ver; do
-                version_path="${VERSIONS_ROOT}/${ver}"
-                created=$(get_creation_date "$version_path")
-                edited=$(get_last_edit_date "$version_path")
-                printf "%-20s %-12s %-12s\n" "$ver" "$created" "$edited"
+            # List environments with dates
+            list_available_environments | while read -r env; do
+                env_path="${VERSIONS_ROOT}/${env}"
+                created=$(get_creation_date "$env_path")
+                edited=$(get_last_edit_date "$env_path")
+                printf "%-20s %-12s %-12s\n" "$env" "$created" "$edited"
             done
             
             exit 0
@@ -509,15 +515,15 @@ echo -e "${YELLOW}   ComfyUI Auto-Start Script${NC}"
 echo -e "${YELLOW}========================================${NC}"
 echo ""
 
-# Select version if not specified via command line
-if [ -z "$SELECTED_VERSION" ]; then
-    select_version
+# Select environment if not specified via command line
+if [ -z "$SELECTED_ENV" ]; then
+    select_environment
 fi
 
-# Validate and set paths for selected version
-validate_version "$SELECTED_VERSION"
+# Validate and set paths for selected environment
+validate_environment "$SELECTED_ENV"
 
-echo -e "${BLUE}Selected Version: ${GREEN}${SELECTED_VERSION}${NC}"
+echo -e "${BLUE}Selected Environment: ${GREEN}${SELECTED_ENV}${NC}"
 echo -e "${BLUE}ComfyUI Path:     ${CYAN}${COMFY_PATH}${NC}"
 echo -e "${BLUE}Python Env:       ${CYAN}${PYTHON_PATH}${NC}"
 
@@ -542,7 +548,7 @@ echo -e "${BLUE}[1/3] Starting ComfyUI Server...${NC}"
 # Launch the Python script in background, redirecting output to log file
 cd "$COMFY_PATH" || exit 1
 
-# Use the python from the selected version's environment
+# Use the python from the selected environment's Python installation
 # Combine manager args with extra user-provided args
 ALL_ARGS="$ARGS $EXTRA_ARGS"
 "${PYTHON_PATH}/bin/python3" "main.py" $ALL_ARGS > "$LOG_FILE" 2>&1 &
