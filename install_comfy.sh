@@ -217,14 +217,96 @@ rename_environment() {
         return 0
     fi
     
-    # Perform rename
-    if mv "$old_dir" "$new_dir"; then
-        log_success "Environment renamed successfully: $old_name → $new_name"
-        return 0
-    else
+    # Perform rename of main environment directory
+    if ! mv "$old_dir" "$new_dir"; then
         log_error "Failed to rename environment"
         return 1
     fi
+    log_success "Environment renamed: $old_name → $new_name"
+    
+    # Rename workflow folder in central workflows directory
+    local old_workflows="${SCRIPT_DIR}/workflows/${old_name}"
+    local new_workflows="${SCRIPT_DIR}/workflows/${new_name}"
+    
+    if [ -d "$old_workflows" ] || [ -L "$old_workflows" ]; then
+        log_info "Renaming workflow folder..."
+        mkdir -p "$(dirname "$new_workflows")"
+        mv "$old_workflows" "$new_workflows" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            log_success "Workflow folder renamed: $old_name → $new_name"
+        fi
+    fi
+    
+    # Rename inputs folder in central inputs directory
+    local old_inputs="${SCRIPT_DIR}/inputs/${old_name}"
+    local new_inputs="${SCRIPT_DIR}/inputs/${new_name}"
+    
+    if [ -d "$old_inputs" ] || [ -L "$old_inputs" ]; then
+        log_info "Renaming inputs folder..."
+        mkdir -p "$(dirname "$new_inputs")"
+        mv "$old_inputs" "$new_inputs" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            log_success "Inputs folder renamed: $old_name → $new_name"
+        fi
+    fi
+    
+    # Rename outputs folder in central outputs directory
+    local old_outputs="${SCRIPT_DIR}/outputs/${old_name}"
+    local new_outputs="${SCRIPT_DIR}/outputs/${new_name}"
+    
+    if [ -d "$old_outputs" ] || [ -L "$old_outputs" ]; then
+        log_info "Renaming outputs folder..."
+        mkdir -p "$(dirname "$new_outputs")"
+        mv "$old_outputs" "$new_outputs" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            log_success "Outputs folder renamed: $old_name → $new_name"
+        fi
+    fi
+    
+    # Update symlinks inside the ComfyUI installation to point to new locations
+    local comfyui_path="${new_dir}/comfyui"
+    
+    if [ -d "$comfyui_path" ]; then
+        log_info "Updating internal symlinks..."
+        
+        # Update workflows symlink
+        local workflows_link="${comfyui_path}/user/default/workflows"
+        if [ -L "$workflows_link" ]; then
+            local target=$(readlink "$workflows_link")
+            if [[ "$target" == *"/${old_name}" ]]; then
+                rm "$workflows_link"
+                local new_target=$(echo "$target" | sed "s|/${old_name}$|/${new_name}|")
+                ln -s "$new_target" "$workflows_link"
+                log_success "Updated workflows symlink → $new_workflows"
+            fi
+        fi
+        
+        # Update inputs symlink
+        local inputs_link="${comfyui_path}/input"
+        if [ -L "$inputs_link" ]; then
+            local target=$(readlink "$inputs_link")
+            if [[ "$target" == *"/${old_name}" ]]; then
+                rm "$inputs_link"
+                local new_target=$(echo "$target" | sed "s|/${old_name}$|/${new_name}|")
+                ln -s "$new_target" "$inputs_link"
+                log_success "Updated inputs symlink → $new_inputs"
+            fi
+        fi
+        
+        # Update outputs symlink
+        local outputs_link="${comfyui_path}/output"
+        if [ -L "$outputs_link" ]; then
+            local target=$(readlink "$outputs_link")
+            if [[ "$target" == *"/${old_name}" ]]; then
+                rm "$outputs_link"
+                local new_target=$(echo "$target" | sed "s|/${old_name}$|/${new_name}|")
+                ln -s "$new_target" "$outputs_link"
+                log_success "Updated outputs symlink → $new_outputs"
+            fi
+        fi
+    fi
+    
+    return 0
 }
 
 clone_environment() {
