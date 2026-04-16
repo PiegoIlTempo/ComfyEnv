@@ -1034,6 +1034,30 @@ install_manager() {
     fi
 }
 
+# Copy comfy.settings.json from configs directory if it exists
+copy_comfy_settings() {
+    local version_dir="$1"
+    local source_settings="${SCRIPT_DIR}/configs/comfy.settings.json"
+    local target_dir="${version_dir}/comfyui/user/default"
+    local target_settings="${target_dir}/comfy.settings.json"
+
+    if [ -f "$source_settings" ]; then
+        # Create target directory if it doesn't exist
+        mkdir -p "$target_dir"
+        
+        # Copy the settings file
+        cp "$source_settings" "$target_settings"
+        
+        if [ $? -eq 0 ]; then
+            log_success "Copied comfy.settings.json to: $target_settings"
+        else
+            log_warning "Failed to copy comfy.settings.json"
+        fi
+    else
+        log_info "No custom comfy.settings.json found at: $source_settings"
+    fi
+}
+
 create_model_symlinks() {
     local version_dir="$1"
 
@@ -1654,6 +1678,9 @@ main() {
 
     # Step 13: Create output symlinks
     create_output_symlinks "$version_dir"
+
+    # Step 14: Copy comfy.settings.json if it exists
+    copy_comfy_settings "$version_dir"
 
     # Show completion summary
     show_completion_summary "$version_dir" "$target_version" "$python_ver"

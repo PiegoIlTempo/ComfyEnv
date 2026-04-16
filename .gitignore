@@ -60,3 +60,7 @@ inputs/*
 # Exclude outputs directory
 outputs/*
 !outputs/.gitkeep
+
+# Exclude configs directory
+configs/*
+!configs/.gitkeep
