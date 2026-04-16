@@ -4,7 +4,7 @@
 # Configuration
 # ============================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSIONS_ROOT="${SCRIPT_DIR}/comfy_versions"
+VERSIONS_ROOT="${SCRIPT_DIR}/environments"
 BROWSER_URL="http://127.0.0.1:8188"
 LOG_FILE="comfyui.log"
 
@@ -61,7 +61,7 @@ list_available_environments() {
         return 1
     fi
 
-    # Find all environment directories (directories directly under comfy_versions)
+    # Find all environment directories (directories directly under environments)
     while IFS= read -r -d '' dir; do
         local name=$(basename "$dir")
         envs+=("$name")

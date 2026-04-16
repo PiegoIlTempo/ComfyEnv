@@ -1,6 +1,6 @@
-# Exclude comfy_versions directory
-comfy_versions/*
-!comfy_versions/.gitkeep
+# Exclude environments directory
+environments/*
+!environments/.gitkeep
 
 # Exclude workflows directory
 workflows/*

@@ -48,7 +48,7 @@
 
 ### 💡 Pro Tip: Keep Your Workflows Safe!
 
-**Store your workflow files outside the `comfy_versions/` folder!** This way:
+**Store your workflow files outside the `environments/` folder!** This way:
 - ✅ You can use the same workflows across different setups
 - ✅ They won't disappear if you delete or reinstall a setup
 - ✅ Easy to back up and share with others
@@ -148,8 +148,8 @@ pyenv --version  # Should output version number
 # Output:
 # NAME                         VERSION      PYTHON             PATH
 # ----                         -------      ------             ----
-# v0.3.62                      v0.3.62      python_3.11        /path/to/comfy_versions/v0.3.62/
-# production.v1                v0.18.0      python_3.13        /path/to/comfy_versions/production.v1/
+# v0.3.62                      v0.3.62      python_3.11        /path/to/environments/v0.3.62/
+# production.v1                v0.18.0      python_3.13        /path/to/environments/production.v1/
 ```
 
 #### Delete Environment
@@ -187,7 +187,7 @@ comfy/
 │   ├── vae/
 │   └── loras/
 ├── workflows/                # 💡 Keep your workflow files here (recommended)
-└── comfy_versions/           # All installations stored here
+└── environments/           # All installations stored here
     ├── v0.3.62/
     │   ├── python_3.11/      # Python setup
     │   ├── comfyui/          # ComfyUI source code

@@ -4,7 +4,7 @@
 # Configuration
 # ============================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSIONS_ROOT="${SCRIPT_DIR}/comfy_versions"
+VERSIONS_ROOT="${SCRIPT_DIR}/environments"
 COMFYUI_REPO="https://github.com/Comfy-Org/ComfyUI.git"
 MANAGER_REPO="https://github.com/ltdrdata/ComfyUI-Manager.git"
 
