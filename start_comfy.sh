@@ -41,6 +41,7 @@ EXTRA_ARGS=""
 CUSTOM_PORT=""
 ACTUAL_PORT=$DEFAULT_PORT
 INSTANCE_LOG_FILE=""
+SERVER_STARTED=0
 
 # ============================================
 # Functions
@@ -413,8 +414,8 @@ cleanup() {
         wait "$SERVER_PID" 2>/dev/null
     fi
 
-    # Unregister this instance from tracking
-    if [ -n "$ACTUAL_PORT" ]; then
+    # Unregister this instance from tracking (only if we actually started it)
+    if [ $SERVER_STARTED -eq 1 ]; then
         unregister_instance "$ACTUAL_PORT"
     fi
 
@@ -748,8 +749,11 @@ validate_environment "$SELECTED_ENV"
 # Check if this environment is already running
 existing_port=$(get_env_port "$SELECTED_ENV")
 if [ -n "$existing_port" ]; then
+    echo ""
     echo -e "${RED}✗ Environment '${SELECTED_ENV}' is already running on port ${existing_port}${NC}"
     echo -e "${YELLOW}Use Ctrl+C to stop the existing instance, or use a different environment.${NC}"
+    echo ""
+    read -p "Press Enter to exit..." _
     exit 1
 fi
 
@@ -809,6 +813,9 @@ ALL_ARGS="$ARGS --port $ACTUAL_PORT $EXTRA_ARGS"
 
 SERVER_PID=$!
 echo -e "${GREEN}✓ Server started with PID: ${SERVER_PID}${NC}"
+
+# Mark that we successfully started a server (for cleanup tracking)
+SERVER_STARTED=1
 
 # Register this instance for tracking
 register_instance "$ACTUAL_PORT" "$SELECTED_ENV" "$SERVER_PID"
@@ -885,8 +892,8 @@ while true; do
                 wait "$SERVER_PID" 2>/dev/null
             fi
 
-            # Unregister this instance from tracking
-            if [ -n "$ACTUAL_PORT" ]; then
+            # Unregister this instance from tracking (only if we actually started it)
+            if [ $SERVER_STARTED -eq 1 ]; then
                 unregister_instance "$ACTUAL_PORT"
             fi
 
