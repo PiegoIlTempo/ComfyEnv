@@ -5,6 +5,7 @@ environments/*
 # Exclude workflows directory
 workflows/*
 !workflows/.gitkeep
+!workflows/_shared/.gitkeep
 
 # Exclude everything in models folder
 models/*/*

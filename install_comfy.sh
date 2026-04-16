@@ -8,6 +8,9 @@ VERSIONS_ROOT="${SCRIPT_DIR}/environments"
 COMFYUI_REPO="https://github.com/Comfy-Org/ComfyUI.git"
 MANAGER_REPO="https://github.com/ltdrdata/ComfyUI-Manager.git"
 
+# Reserved environment names that are prohibited
+RESERVED_ENV_NAMES=("_shared")
+
 # Python version mapping (version -> python_version)
 # Adjust based on your needs - older versions may need older Python
 declare -A PYTHON_VERSION_MAP=(
@@ -179,14 +182,42 @@ delete_environment() {
     fi
 }
 
+is_reserved_name() {
+    local name="$1"
+    for reserved in "${RESERVED_ENV_NAMES[@]}"; do
+        if [[ "$name" == "$reserved" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+validate_env_name() {
+    local name="$1"
+    
+    # Check basic format
+    if [[ ! "$name" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+        log_error "Invalid environment name: $name"
+        log_info "Names can only contain letters, numbers, underscores, hyphens, and dots."
+        return 1
+    fi
+    
+    # Check if reserved
+    if is_reserved_name "$name"; then
+        log_error "Reserved environment name: $name"
+        log_info "This name is reserved for internal use. Please choose a different name."
+        return 1
+    fi
+    
+    return 0
+}
+
 rename_environment() {
     local old_name="$1"
     local new_name="$2"
     
     # Validate new name
-    if [[ ! "$new_name" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
-        log_error "Invalid environment name: $new_name"
-        log_info "Names can only contain letters, numbers, underscores, hyphens, and dots."
+    if ! validate_env_name "$new_name"; then
         return 1
     fi
     
@@ -314,9 +345,7 @@ clone_environment() {
     local target_env="$2"
     
     # Validate target name
-    if [[ ! "$target_env" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
-        log_error "Invalid environment name: $target_env"
-        log_info "Names can only contain letters, numbers, underscores, hyphens, and dots."
+    if ! validate_env_name "$target_env"; then
         return 1
     fi
     
@@ -1030,6 +1059,29 @@ create_model_symlinks() {
     fi
 }
 
+create_workflow_shared_symlink() {
+    local env_name="$1"
+    local central_workflows="${SCRIPT_DIR}/workflows/${env_name}"
+    local shared_source="${SCRIPT_DIR}/workflows/_shared"
+    local shared_link="${central_workflows}/shared"
+
+    # Only create the symlink if the _shared directory exists
+    if [ -d "$shared_source" ]; then
+        # Remove existing link or directory
+        if [ -e "$shared_link" ] || [ -L "$shared_link" ]; then
+            rm -rf "$shared_link"
+        fi
+        
+        # Create symlink to _shared
+        ln -s "$shared_source" "$shared_link"
+        if [ $? -eq 0 ]; then
+            log_success "Created shared symlink: $shared_link → $shared_source"
+        else
+            log_warning "Failed to create shared symlink"
+        fi
+    fi
+}
+
 create_workflow_symlinks() {
     local version_dir="$1"
     local env_name=$(basename "$version_dir")
@@ -1045,6 +1097,15 @@ create_workflow_symlinks() {
     if [ ! -d "$central_workflows" ]; then
         mkdir -p "$central_workflows"
         log_success "Created central workflows directory: $central_workflows"
+        
+        # Create shared symlink inside the new workflow folder
+        create_workflow_shared_symlink "$env_name"
+    else
+        # Directory exists, ensure shared symlink is present
+        local shared_link="${central_workflows}/shared"
+        if [ ! -L "$shared_link" ]; then
+            create_workflow_shared_symlink "$env_name"
+        fi
     fi
 
     # Step 2: Create internal workflows directory structure (needed for first run)
@@ -1080,6 +1141,14 @@ create_workflow_symlinks() {
         log_success "Workflows symlinked: $internal_workflows → $central_workflows"
     else
         log_error "Failed to create workflow symlink"
+    fi
+    
+    # Step 7: Ensure shared symlink exists in central workflows directory
+    if [ -d "$central_workflows" ]; then
+        local shared_link="${central_workflows}/shared"
+        if [ ! -L "$shared_link" ]; then
+            create_workflow_shared_symlink "$env_name"
+        fi
     fi
 }
 
@@ -1524,13 +1593,16 @@ main() {
     
     if [ -n "$custom_name" ]; then
         # Validate custom name
-        if [[ ! "$custom_name" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
-            log_error "Invalid environment name: $custom_name"
-            log_info "Names can only contain letters, numbers, underscores, hyphens, and dots."
+        if ! validate_env_name "$custom_name"; then
             exit 1
         fi
         version_dir="${VERSIONS_ROOT}/${custom_name}"
     else
+        # Also validate the default name (version tag)
+        local default_name="$target_version"
+        if ! validate_env_name "$default_name"; then
+            exit 1
+        fi
         version_dir="${VERSIONS_ROOT}/${target_version}"
     fi
 
