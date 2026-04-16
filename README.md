@@ -38,6 +38,16 @@ ComfyEnv automatically creates a centralized resource management system that kee
 - **Automatic organization** - Each environment gets its own subfolder within shared spaces
 - **Easy file management** - Find and organize your assets without digging through multiple directories
 
+#### ⚙️ Initial Configs Folder (NEW!)
+- **Import your ComfyUI settings once** - Place your `comfy.settings.json` in the root `configs/` folder
+- **Find your config file**: Located at `comfyui/user/default/comfy.settings.json` in any existing ComfyUI installation or inside an environment (`./environments/[env-name]/comfyui/user/default/`)
+- **Consistent experience** - All new environments are created with your settings and preferences
+
+#### 🔄 Shared Workflows `_shared` Directory (NEW!)
+- **Global workflow library** - Create `workflows/_shared/` to store workflows accessible from ALL environments
+- **Automatic linking** - Appears as a `shared/` subfolder inside each environment's workflow folder
+- **Perfect for**: Frequently-used workflows you want everywhere
+
 ---
 
 ### 🚀 Multi-Version Installation
@@ -45,6 +55,13 @@ ComfyEnv automatically creates a centralized resource management system that kee
 - **Automatic Python setup** - Smart selection based on what your version needs
 - **Custom names for your setups** - Give them meaningful names like `production.v1` or `dev-test`
 - **Browse available versions** - See all GitHub releases
+
+### 🔄 Multi-Instance Support (NEW!)
+- **Run multiple instances simultaneously** - Start different ComfyUI versions at the same time on different ports
+- **Automatic port management** - Auto-selects available ports starting from 8188 when default is in use
+- **Custom port option** - Use `--port PORT` to specify a specific port number
+- **Instance tracking** - Built-in system tracks all running instances with PID files
+- **Smart cleanup** - Automatically handles crashed sessions and stale processes
 
 ### 🎯 GPU-Aware Setup
 - **Auto-detects your graphics card** - Works with NVIDIA, AMD, Intel Arc, and Apple Silicon
@@ -71,7 +88,7 @@ ComfyEnv automatically creates a centralized resource management system that kee
 
 For detailed information about recent changes, new features, and improvements, please see our [CHANGELOG.md](CHANGELOG.md) file.
 
-**Latest Updates (2026-04-16):**
+**Latest Updates (2026-04-17):**
 - 🔧 New `--fix-symlinks` option to automatically repair broken symlinks
 - 🎯 Enhanced rename functionality now handles workflows, inputs, and outputs folders
 - 📁 Centralized I/O management with symlink support for input/output folders
@@ -79,6 +96,9 @@ For detailed information about recent changes, new features, and improvements, p
 - 📅 Release dates displayed in `--list` output
 - 🏷️ Environment creation and last edit dates shown in lists and menus
 - 🔍 More reliable version detection using `comfyui_version.py`
+- 🔄 Multi-instance support - run multiple ComfyUI instances simultaneously on different ports
+- 📁 Shared `_shared` workflows directory for globally accessible workflow library
+- ⚙️ Custom `comfy.settings.json` auto-applied from `configs/` folder during installation
 
 ---
 
@@ -212,14 +232,19 @@ comfy/
 │   ├── vae/
 │   └── loras/
 ├── workflows/                # 🔄 Shared workflows - accessible from all environments
-│   ├── my-workflow.json
-│   └── another-workflow.png
+│   ├── my-environment/
+│   │   ├── my-workflow1.json
+│   │   └── my-workflow2.json
+│   └── _shared/              # 🌐 Global workflow library (linked as 'shared/' in each env)
+│       └── utility-workflow.json
 ├── inputs/                   # 📥 Shared inputs folder
 │   ├── v0.3.62/             # Per-environment subfolders
 │   └── production.v1/
 ├── outputs/                  # 📤 Shared outputs folder  
 │   ├── v0.3.62/
 │   └── production.v1/
+├── configs/                  # ⚙️ Initial configuration folder
+│   └── comfy.settings.json   # Your ComfyUI settings (imported to all envs)
 └── environments/             # All installations stored here
     ├── v0.3.62/
     │   ├── python_3.11/      # Python setup

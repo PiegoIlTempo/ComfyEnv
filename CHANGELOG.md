@@ -10,12 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Symlink Repair Tool**: New `--fix-symlinks` option that automatically detects and repairs broken symlinks across all environments, including models, workflows, inputs, and outputs directories
+- **Multi-Instance Support**: Run multiple ComfyUI instances simultaneously on different ports!
+  - `--port PORT` option to specify custom port (default: auto-select from 8188+)
+  - Automatic port selection when default is in use
+  - Instance tracking system with PID files for lifecycle management
+  - `--list` now shows running status of all instances
+  - Per-instance logs stored in `.logs/` directory
+  - Cleanup stale PIDs to handle crashed sessions gracefully
+- **Shared Workflows Directory**: New `_shared` subfolder inside `workflows/` for globally accessible workflows
+  - Create `workflows/_shared/` to store workflows available from ALL environments
+  - Automatically linked as `shared/` subfolder inside each environment's workflow folder
+  - Perfect for utility nodes, common templates, and frequently-used workflows
+- **Custom ComfyUI Settings**: Apply your custom `comfy.settings.json` automatically during installation
+  - Place your settings file in `configs/comfy.settings.json`
+  - Automatically copied to every new environment's `comfyui/user/default/` folder
+  - Customize UI preferences, API settings, and other defaults across all installations
+- **Symlink Repair Tool**: New `--fix-symlinks` option that automatically detects and repairs broken symlinks across all environments, including models, workflows, inputs, outputs directories
 - **Enhanced Rename Functionality**: The rename environment feature now handles not just the environment directory but also associated workflows, inputs, and outputs folders - ensuring complete renaming without orphaned references
 - **Centralized I/O Management**: New symlink management system for input/output folders, allowing centralized storage of images and files that can be shared across all environments
 - **Workflow Symlink Support**: Added workflow folder symlink management with automatic cloning support when duplicating environments
 - **Release Date Display**: The `--list` output now shows release dates alongside version numbers, helping users identify the age and stability of each ComfyUI version
 - **Environment Metadata Display**: Environment list and start menu now display creation date and last edit date for each environment, making it easier to track when setups were created or modified
+- **Reserved Names Validation**: Added validation to prevent creating environments with reserved internal names like `_shared`
 
 ### Changed
 - **Terminology Update**: Renamed "version" terminology to "environment" throughout the script for clarity - installations are now referred to as "environments" to better reflect that they can have custom names beyond just version numbers
@@ -29,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2026-04-16] - Major Feature Release
 
 ### Added
+- **Shared Configs Folder**: New `configs/` folder that allows you to import your ComfyUI settings (`comfy.settings.json`) to all environments automatically. Simply place your existing config file in the root `configs/` folder and it will be available across all installations
 - **Symlink Repair Tool**: New `--fix-symlinks` option that automatically detects and repairs broken symlinks across all environments, including models, workflows, inputs, and outputs directories
 - **Enhanced Rename Functionality**: The rename environment feature now handles not just the environment directory but also associated workflows, inputs, and outputs folders - ensuring complete renaming without orphaned references
 - **Centralized I/O Management**: New symlink management system for input/output folders, allowing centralized storage of images and files that can be shared across all environments
@@ -101,4 +118,4 @@ When making changes, please update this CHANGELOG.md with:
 
 ---
 
-*Generated on 2026-04-16*
+*Generated on 2026-04-17*
