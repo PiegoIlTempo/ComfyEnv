@@ -44,6 +44,19 @@ NC='\033[0m'
 # Functions
 # ============================================
 
+get_comfyui_version_from_file() {
+    local comfyui_path="$1"
+    local version_file="${comfyui_path}/comfyui_version.py"
+    
+    if [ -f "$version_file" ]; then
+        # Extract version from the file (format: __version__ = "0.3.62")
+        grep -oP '__version__\s*=\s*"\K[^"]+' "$version_file" 2>/dev/null || \
+        grep '__version__' "$version_file" | sed 's/.*= *"\([^"]*\)".*/\1/'
+    else
+        echo "unknown"
+    fi
+}
+
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1" >&2
 }
@@ -81,10 +94,9 @@ list_environments() {
         local version="unknown"
         local python_ver="unknown"
         
-        # Get ComfyUI version from git if available
-        if [ -d "${comfyui_path}/.git" ]; then
-            version=$(cd "$comfyui_path" && git describe --tags --abbrev=0 2>/dev/null || echo "commit")
-            version="${version:0:12}"
+        # Get ComfyUI version from comfyui_version.py file (most reliable)
+        if [ -d "$comfyui_path" ]; then
+            version=$(get_comfyui_version_from_file "$comfyui_path")
         fi
         
         # Find Python environment
