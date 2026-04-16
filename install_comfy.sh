@@ -1183,6 +1183,48 @@ create_output_symlinks() {
     fi
 }
 
+fix_all_symlinks() {
+    log_info "Fixing all symlinks for every environment..."
+    echo ""
+    
+    if [ ! -d "$VERSIONS_ROOT" ]; then
+        log_error "No environments found. Versions root doesn't exist: $VERSIONS_ROOT"
+        return 1
+    fi
+    
+    local count=0
+    
+    for version_dir in "$VERSIONS_ROOT"/*/; do
+        [ -d "$version_dir" ] || continue
+        
+        local env_name=$(basename "$version_dir")
+        log_info "Processing environment: $env_name"
+        
+        # Fix model symlinks
+        create_model_symlinks "$version_dir"
+        
+        # Fix workflow symlinks
+        create_workflow_symlinks "$version_dir"
+        
+        # Fix input symlinks
+        create_input_symlinks "$version_dir"
+        
+        # Fix output symlinks
+        create_output_symlinks "$version_dir"
+        
+        count=$((count + 1))
+        echo ""
+    done
+    
+    if [ $count -eq 0 ]; then
+        log_warning "No environments found in: $VERSIONS_ROOT"
+        return 1
+    else
+        log_success "Fixed symlinks for $count environment(s)"
+        return 0
+    fi
+}
+
 show_completion_summary() {
     local version_dir="$1"
     local comfyui_version="$2"
@@ -1224,6 +1266,7 @@ Environment Management:
   --env-delete NAME        Delete an environment
   --env-rename OLD NEW     Rename an environment
   --env-clone SRC DST      Clone an environment
+  --fix-symlinks           Fix all symlinks (useful after moving project directory)
 
 Examples:
 Installation:
@@ -1238,6 +1281,7 @@ Environment Management:
   $0 --env-delete my-comfy     # Delete "my-comfy" environment
   $0 --env-rename old new      # Rename environment from "old" to "new"
   $0 --env-clone src dst       # Clone "src" environment to "dst"
+  $0 --fix-symlinks           # Fix all symlinks after moving project directory
 
 EOF
 }
@@ -1327,6 +1371,7 @@ main() {
     local env_rename_new=""
     local env_clone_src=""
     local env_clone_dst=""
+    local fix_symlinks=false
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -1381,6 +1426,10 @@ main() {
                 env_clone_dst="$3"
                 shift 3
                 ;;
+            --fix-symlinks)
+                fix_symlinks=true
+                shift
+                ;;
             --help|-h)
                 show_help
                 exit 0
@@ -1415,6 +1464,11 @@ main() {
     
     if [ -n "$env_clone_src" ] && [ -n "$env_clone_dst" ]; then
         clone_environment "$env_clone_src" "$env_clone_dst"
+        exit $?
+    fi
+    
+    if [ "$fix_symlinks" = true ]; then
+        fix_all_symlinks
         exit $?
     fi
 
