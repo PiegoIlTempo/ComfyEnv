@@ -796,9 +796,9 @@ fi
 echo ""
 
 # Clear old log file for fresh start
-# Create unique log file per instance in .logs directory
+# Create unique log file per environment in .logs directory
 mkdir -p "$LOG_DIR"
-INSTANCE_LOG_FILE="${LOG_DIR}/${SELECTED_ENV}_port_${ACTUAL_PORT}.log"
+INSTANCE_LOG_FILE="${LOG_DIR}/${SELECTED_ENV}.log"
 > "$INSTANCE_LOG_FILE"
 
 echo -e "${BLUE}[1/3] Starting ComfyUI Server on port ${ACTUAL_PORT}...${NC}"
