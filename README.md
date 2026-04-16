@@ -7,6 +7,7 @@
 [![Bash](https://img.shields.io/badge/Bash-5.0+-886942?logo=gnu-bash)](https://www.gnu.org/software/bash/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Changelog](https://img.shields.io/badge/changelog-available-brightgreen)](CHANGELOG.md)
 
 </div>
 
@@ -14,11 +15,30 @@
 
 ## ✨ Features
 
-### 📂 Shared Models Folder
+### 📂 Shared Resources - Everything in One Place!
+
+ComfyEnv automatically creates a centralized resource management system that keeps all your files organized and accessible across every environment:
+
+#### 🎯 Shared Models Folder
 - **One central location for all your models** - Every installation automatically connects to a single `models/` folder at the root level
 - **No duplicate downloads** - Download each model once and it's available across all your setups
 - **Saves disk space** - No need to store multiple copies of the same checkpoints, LoRAs, VAEs, etc.
 - **Always accessible** - Your models stay with you even when you create or delete installations
+
+#### 📄 Shared Workflows Folder (NEW!)
+- **Centralized workflow storage** - All your `.json` and `.png` workflow files live in one `workflows/` folder
+- **Access from any environment** - Load and save workflows from any ComfyUI version seamlessly
+- **Automatic symlink creation** - Each environment automatically links to the shared workflows folder
+- **Cloning support** - When you clone an environment, workflow symlinks are preserved
+- **Easy sharing & backup** - Share your entire workflow library by sharing one folder!
+
+#### 📥📤 Shared Inputs & Outputs Folders (NEW!)
+- **Centralized file I/O** - Single `inputs/` and `outputs/` folders for all environments
+- **No more scattered files** - All your input images and generated outputs in predictable locations
+- **Automatic organization** - Each environment gets its own subfolder within shared spaces
+- **Easy file management** - Find and organize your assets without digging through multiple directories
+
+---
 
 ### 🚀 Multi-Version Installation
 - **Install any ComfyUI version** - Supports all versions from v0.3.x to latest
@@ -43,17 +63,22 @@
 - **ComfyUI-Manager support** - Installed automatically by default
 - **Detailed progress output** - See exactly what's happening during installation
 - **Flexible naming** - Use letters, numbers, underscores, hyphens, and dots in names
+- **Symlink repair tool** - `--fix-symlinks` option to automatically detect and fix broken symlinks
 
 ---
 
-### 💡 Pro Tip: Keep Your Workflows Safe!
+## 📜 Changelog
 
-**Store your workflow files outside the `environments/` folder!** This way:
-- ✅ You can use the same workflows across different setups
-- ✅ They won't disappear if you delete or reinstall a setup
-- ✅ Easy to back up and share with others
+For detailed information about recent changes, new features, and improvements, please see our [CHANGELOG.md](CHANGELOG.md) file.
 
-A good place is right next to the script, like `workflows/`
+**Latest Updates (2026-04-16):**
+- 🔧 New `--fix-symlinks` option to automatically repair broken symlinks
+- 🎯 Enhanced rename functionality now handles workflows, inputs, and outputs folders
+- 📁 Centralized I/O management with symlink support for input/output folders
+- 🔄 Workflow symlink management with cloning support
+- 📅 Release dates displayed in `--list` output
+- 🏷️ Environment creation and last edit dates shown in lists and menus
+- 🔍 More reliable version detection using `comfyui_version.py`
 
 ---
 
@@ -182,20 +207,34 @@ After installation, your folder will look like this:
 ```
 comfy/
 ├── install_comfy.sh          # Main installer script
-├── models/                   # ⭐ Shared models - all setups use this one!
+├── models/                   # ⭐ Shared models - all environments use this!
 │   ├── checkpoints/
 │   ├── vae/
 │   └── loras/
-├── workflows/                # 💡 Keep your workflow files here (recommended)
-└── environments/           # All installations stored here
+├── workflows/                # 🔄 Shared workflows - accessible from all environments
+│   ├── my-workflow.json
+│   └── another-workflow.png
+├── inputs/                   # 📥 Shared inputs folder
+│   ├── v0.3.62/             # Per-environment subfolders
+│   └── production.v1/
+├── outputs/                  # 📤 Shared outputs folder  
+│   ├── v0.3.62/
+│   └── production.v1/
+└── environments/             # All installations stored here
     ├── v0.3.62/
     │   ├── python_3.11/      # Python setup
     │   ├── comfyui/          # ComfyUI source code
-    │   └── models -> ../models/  # Points to shared models folder
+    │   ├── models -> ../../models/       # → Shared models
+    │   ├── workflows -> ../../workflows/  # → Shared workflows
+    │   ├── inputs -> ../../inputs/v0.3.62/# → Per-env input folder
+    │   └── outputs -> ../../outputs/v0.3.62/# → Per-env output folder
     └── production.v1/
         ├── python_3.13/
         ├── comfyui/
-        └── models -> ../models/
+        ├── models -> ../../models/       # → Shared models
+        ├── workflows -> ../../workflows/  # → Shared workflows
+        ├── inputs -> ../../inputs/production.v1/# → Per-env input folder
+        └── outputs -> ../../outputs/production.v1/# → Per-env output folder
 ```
 
 ---
