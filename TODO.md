@@ -23,21 +23,6 @@
 
 ---
 
-### 4. Add Release Date to Version List ✅
-- **Goal**: Show when each ComfyUI version was released in `--list` output
-- **Benefit**: Helps users choose versions based on recency/stability
-- **Implementation**:
-  - Fetch release date from GitHub API alongside version tags
-  - Add column to `--list` output: `VERSION | RELEASE DATE`
-  - Example:
-    ```
-    VERSION      RELEASE DATE   DOWNLOADS
-    v0.3.62      2024-12-15     1,234
-    v0.18.0      2024-06-20     5,678
-    ```
-
----
-
 ### 5. Run Multiple ComfyUI Instances on Different Ports ✅
 - **Goal**: Start multiple ComfyUI environments simultaneously on different ports
 - **Benefit**:

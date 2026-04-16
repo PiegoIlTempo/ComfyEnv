@@ -1177,6 +1177,45 @@ fetch_all_releases() {
     done
 }
 
+# Fetch releases with dates for --list output
+fetch_releases_with_dates() {
+    local page=1
+    local per_page=100
+    local done=false
+    
+    while [ "$done" = false ]; do
+        local url="https://api.github.com/repos/Comfy-Org/ComfyUI/releases?page=$page&per_page=$per_page"
+        local response=$(curl -s "$url")
+        
+        # Check if we got any results
+        if ! echo "$response" | grep -q '"tag_name"'; then
+            done=true
+            continue
+        fi
+        
+        # Extract tag_name and published_date from each release
+        # Using Python for reliable JSON parsing (more robust than sed/grep)
+        echo "$response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    for release in data:
+        tag = release.get('tag_name', '')
+        date = release.get('published_at', 'unknown')[:10] if release.get('published_at') else 'unknown'
+        print(f'{tag}\t{date}')
+except: pass
+" 2>/dev/null
+        
+        # Check if there are more pages by looking at response length
+        local count=$(echo "$response" | grep -c '"tag_name"')
+        if [ "$count" -lt "$per_page" ]; then
+            done=true
+        else
+            page=$((page + 1))
+        fi
+    done
+}
+
 # ============================================
 # Main Script
 # ============================================
@@ -1214,10 +1253,17 @@ main() {
                 echo "Fetching ALL available versions from GitHub..."
                 echo "(This may take a moment)"
                 echo ""
-                fetch_all_releases | sort -V | while read -r tag; do
-                    echo "  $tag"
+                
+                # Print header
+                printf "%-15s %-12s\n" "VERSION" "RELEASE DATE"
+                printf "%-15s %-12s\n" "-------" "----------"
+                
+                # Fetch and display releases with dates, sorted by version
+                fetch_releases_with_dates | sort -t$'\t' -k1 -V | while IFS=$'\t' read -r tag date; do
+                    printf "%-15s %-12s\n" "$tag" "$date"
                 done
-                local total=$(fetch_all_releases | wc -l)
+                
+                local total=$(fetch_releases_with_dates | wc -l)
                 echo ""
                 echo "Total: $total versions found"
                 echo "See more at: https://github.com/Comfy-Org/ComfyUI/releases"
