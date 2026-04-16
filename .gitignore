@@ -44,3 +44,4 @@ comfyui.log
 !models/vae/put_vae_here
 !models/vae_approx/put_taesd_encoder_pth_and_taesd_decoder_pth_here
 
+.continue/*

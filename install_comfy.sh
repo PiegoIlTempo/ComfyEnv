@@ -262,14 +262,74 @@ clone_environment() {
         cp -aL "$source_dir" "$target_dir"
     fi
     
-    if [ $? -eq 0 ]; then
-        log_success "Environment cloned successfully: $source_env → $target_env"
-        return 0
-    else
+    if [ $? -ne 0 ]; then
         log_error "Failed to clone environment"
         rm -rf "$target_dir" 2>/dev/null
         return 1
     fi
+    
+    # Clone workflow folder from source to target in central workflows directory
+    local source_workflows="${SCRIPT_DIR}/workflows/${source_env}"
+    local target_workflows="${SCRIPT_DIR}/workflows/${target_env}"
+    
+    if [ -d "$source_workflows" ]; then
+        log_info "Cloning workflow folder: $source_env → $target_env"
+        mkdir -p "$(dirname "$target_workflows")"
+        
+        if command -v rsync &>/dev/null; then
+            rsync -av "$source_workflows/" "$target_workflows/"
+        else
+            cp -rL "$source_workflows" "$target_workflows"
+        fi
+        
+        if [ $? -eq 0 ]; then
+            log_success "Workflow folder cloned to: $target_workflows"
+        else
+            log_warning "Failed to clone workflow folder"
+        fi
+    elif [ -L "$source_workflows" ]; then
+        # Source workflows is a symlink, follow it and copy the target
+        local real_source=$(readlink -f "$source_workflows")
+        if [ -d "$real_source" ]; then
+            log_info "Cloning workflow folder from symlinked location: $source_env → $target_env"
+            mkdir -p "$(dirname "$target_workflows")"
+            
+            if command -v rsync &>/dev/null; then
+                rsync -av "$real_source/" "$target_workflows/"
+            else
+                cp -rL "$real_source" "$target_workflows"
+            fi
+            
+            if [ $? -eq 0 ]; then
+                log_success "Workflow folder cloned to: $target_workflows"
+            else
+                log_warning "Failed to clone workflow folder"
+            fi
+        fi
+    else
+        log_info "No workflow folder found for source environment, creating empty one"
+        mkdir -p "$target_workflows"
+    fi
+    
+    # Fix the workflow symlink in the cloned environment to point to the new location
+    local target_comfyui="${target_dir}/comfyui"
+    local internal_workflows="${target_comfyui}/user/default/workflows"
+    
+    if [ -L "$internal_workflows" ]; then
+        log_info "Updating workflow symlink for cloned environment..."
+        rm "$internal_workflows"
+        mkdir -p "$(dirname "$internal_workflows")"
+        ln -s "$target_workflows" "$internal_workflows"
+        
+        if [ $? -eq 0 ]; then
+            log_success "Workflow symlink updated: $internal_workflows → $target_workflows"
+        else
+            log_error "Failed to update workflow symlink"
+        fi
+    fi
+    
+    log_success "Environment cloned successfully: $source_env → $target_env"
+    return 0
 }
 
 install_pytorch() {
@@ -762,6 +822,59 @@ create_model_symlinks() {
     fi
 }
 
+create_workflow_symlinks() {
+    local version_dir="$1"
+    local env_name=$(basename "$version_dir")
+
+    # Define paths
+    local central_workflows="${SCRIPT_DIR}/workflows/${env_name}"
+    local comfyui_path="${version_dir}/comfyui"
+    local internal_workflows="${comfyui_path}/user/default/workflows"
+
+    log_info "Setting up workflow symlinks for: $env_name"
+
+    # Step 1: Create central workflows directory if it doesn't exist
+    if [ ! -d "$central_workflows" ]; then
+        mkdir -p "$central_workflows"
+        log_success "Created central workflows directory: $central_workflows"
+    fi
+
+    # Step 2: Create internal workflows directory structure (needed for first run)
+    if [ ! -d "${internal_workflows}" ]; then
+        mkdir -p "${internal_workflows}"
+        log_info "Created internal workflows directory structure"
+    fi
+
+    # Step 3: Remove existing internal workflows if it's a real directory (not symlink)
+    if [ -d "$internal_workflows" ] && [ ! -L "$internal_workflows" ]; then
+        log_warning "Existing workflows directory found, moving contents to central location..."
+        # Move any existing files to central location first
+        if [ "$(ls -A "$internal_workflows" 2>/dev/null)" ]; then
+            mv "$internal_workflows"/* "$central_workflows/" 2>/dev/null
+            mv "$internal_workflows"/.[!.]* "$central_workflows/" 2>/dev/null
+        fi
+        rmdir "$internal_workflows" 2>/dev/null
+    fi
+
+    # Step 4: Remove existing symlink if present
+    if [ -L "$internal_workflows" ]; then
+        log_info "Removing existing workflow symlink..."
+        rm "$internal_workflows"
+    fi
+
+    # Step 5: Create parent directory for symlink (in case it was removed)
+    mkdir -p "${comfyui_path}/user/default"
+
+    # Step 6: Create fresh symlink pointing to central workflows
+    ln -s "$central_workflows" "$internal_workflows"
+    
+    if [ $? -eq 0 ]; then
+        log_success "Workflows symlinked: $internal_workflows → $central_workflows"
+    else
+        log_error "Failed to create workflow symlink"
+    fi
+}
+
 show_completion_summary() {
     local version_dir="$1"
     local comfyui_version="$2"
@@ -1052,6 +1165,9 @@ main() {
 
     # Step 10: Create model symlinks
     create_model_symlinks "$version_dir"
+
+    # Step 11: Create workflow symlinks
+    create_workflow_symlinks "$version_dir"
 
     # Show completion summary
     show_completion_summary "$version_dir" "$target_version" "$python_ver"
