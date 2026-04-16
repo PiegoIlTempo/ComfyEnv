@@ -40,6 +40,19 @@ EXTRA_ARGS=""
 # Functions
 # ============================================
 
+get_creation_date() {
+    local path="$1"
+    # Use stat to get birth time (creation date), fallback to modification time if not available
+    stat -c %w "$path" 2>/dev/null | cut -d' ' -f1 || \
+    stat -c %y "$path" 2>/dev/null | cut -d' ' -f1
+}
+
+get_last_edit_date() {
+    local path="$1"
+    # Get modification time (last edit date)
+    stat -c %y "$path" 2>/dev/null | cut -d' ' -f1
+}
+
 list_available_versions() {
     local versions=()
 
@@ -81,11 +94,17 @@ display_version_menu() {
     echo -e "${CYAN}========================================${NC}"
     echo -e "${CYAN}   Select ComfyUI Version to Launch${NC}"
     echo -e "${CYAN}========================================${NC}"
+    echo ""
+    
+    # Print header
+    printf "%2s %-18s %-10s %-10s %s\n" "#" "VERSION" "CREATED" "LAST EDIT" "STATUS"
+    printf "%2s %-18s %-10s %-10s %s\n" "#" "-------" "-------" "---------" "------"
 
     for i in "${!versions[@]}"; do
         local ver="${versions[$i]}"
         local comfy_path="${VERSIONS_ROOT}/${ver}/comfyui"
         local python_dir=""
+        local version_path="${VERSIONS_ROOT}/${ver}"
 
         # Find the python directory for this version
         while IFS= read -r -d '' pydir; do
@@ -95,10 +114,14 @@ display_version_menu() {
 
         local status="✓"
         if [ ! -d "$comfy_path" ]; then
-            status="✗ (missing comfyui)"
+            status="✗ (no comfyui)"
         fi
+        
+        # Get dates
+        local created=$(get_creation_date "$version_path")
+        local edited=$(get_last_edit_date "$version_path")
 
-        printf "%2d. %-20s %s\n" $((i+1)) "$ver" "${status}"
+        printf "%2d %-18s %-10s %-10s %s\n" $((i+1)) "$ver" "$created" "$edited" "${status}"
     done
 
     echo ""
@@ -449,9 +472,20 @@ while [[ $# -gt 0 ]]; do
             ;;
         --list)
             echo "Available versions:"
-            list_available_versions | while read ver; do
-                printf "  • %s\n" "$ver"
+            echo ""
+            
+            # Print header
+            printf "%-20s %-12s %-12s\n" "VERSION" "CREATED" "LAST EDIT"
+            printf "%-20s %-12s %-12s\n" "-------" "-------" "---------"
+            
+            # List versions with dates
+            list_available_versions | while read -r ver; do
+                version_path="${VERSIONS_ROOT}/${ver}"
+                created=$(get_creation_date "$version_path")
+                edited=$(get_last_edit_date "$version_path")
+                printf "%-20s %-12s %-12s\n" "$ver" "$created" "$edited"
             done
+            
             exit 0
             ;;
         --help|-h)
