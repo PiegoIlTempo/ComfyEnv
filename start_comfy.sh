@@ -522,6 +522,44 @@ show_help() {
     echo "  $0 --list             # List available environments with status"
 }
 
+# Read stored port for an environment from its profile directory
+read_stored_port() {
+    local env_name="$1"
+    local port_file="${PROFILES_ROOT}/${env_name}/.port"
+    
+    if [ -f "$port_file" ]; then
+        cat "$port_file" 2>/dev/null
+    else
+        echo ""
+    fi
+}
+
+# Store the assigned port for an environment in its profile directory
+store_port() {
+    local env_name="$1"
+    local port="$2"
+    
+    mkdir -p "${PROFILES_ROOT}/${env_name}"
+    echo "$port" > "${PROFILES_ROOT}/${env_name}/.port"
+}
+
+# Generate a unique port for an environment based on its name (deterministic)
+get_env_port_number() {
+    local env_name="$1"
+    
+    # First, check if we have a stored port from previous runs
+    local stored_port=$(read_stored_port "$env_name")
+    if [ -n "$stored_port" ]; then
+        echo "$stored_port"
+        return 0
+    fi
+    
+    # No stored port - generate one based on environment name hash
+    local hash=$(echo -n "$env_name" | cksum | awk '{print $1}')
+    local offset=$((hash % 50000))  # Offset within safe port range (8188-58187)
+    echo $((DEFAULT_PORT + offset))
+}
+
 # Get next available port starting from DEFAULT_PORT
 get_available_port() {
     local requested_port="$1"
@@ -753,10 +791,19 @@ if [ -n "$existing_port" ]; then
 fi
 
 # Determine which port to use
-ACTUAL_PORT=$(get_available_port "$CUSTOM_PORT")
+if [ -n "$CUSTOM_PORT" ]; then
+    # User-specified port
+    ACTUAL_PORT=$(get_available_port "$CUSTOM_PORT")
+else
+    # Auto-assign unique port based on environment name (deterministic)
+    ACTUAL_PORT=$(get_env_port_number "$SELECTED_ENV")
+fi
 if [ $? -ne 0 ]; then
     exit 1
 fi
+
+# Store the assigned port for this environment (persistent across runs and renames)
+store_port "$SELECTED_ENV" "$ACTUAL_PORT"
 
 # Update browser URL with actual port
 BROWSER_URL="http://127.0.0.1:${ACTUAL_PORT}"

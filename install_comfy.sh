@@ -355,14 +355,20 @@ rename_environment() {
         fi
     fi
     
-    # Rename browser profile directory
+    # Rename browser profile directory (includes .port file for port persistence)
     local old_profile="${PROFILES_ROOT}/${old_name}"
     local new_profile="${PROFILES_ROOT}/${new_name}"
     if [ -d "$old_profile" ]; then
         log_info "Renaming browser profile..."
         mv "$old_profile" "$new_profile" 2>/dev/null
         if [ $? -eq 0 ]; then
-            log_success "Browser profile renamed: $old_name → $new_name"
+            # Show the stored port if it exists
+            local old_port="${PROFILES_ROOT}/${new_name}/.port"
+            if [ -f "$old_port" ]; then
+                log_success "Browser profile renamed: $old_name → $new_name (keeping port $(cat "$old_port"))"
+            else
+                log_success "Browser profile renamed: $old_name → $new_name"
+            fi
         fi
     fi
     
@@ -604,32 +610,6 @@ clone_environment() {
             log_error "Failed to update output symlink"
         fi
     fi
-    
-    # Clone browser profile from source to target (for session persistence)
-    local source_profile="${PROFILES_ROOT}/${source_env}"
-    local target_profile="${PROFILES_ROOT}/${target_env}"
-    
-    if [ -d "$source_profile" ]; then
-        log_info "Cloning browser profile: $source_env → $target_env"
-        mkdir -p "$(dirname "$target_profile")"
-        
-        if command -v rsync &>/dev/null; then
-            rsync -av "$source_profile/" "$target_profile/"
-        else
-            cp -rL "$source_profile" "$target_profile"
-        fi
-        
-        if [ $? -eq 0 ]; then
-            log_success "Browser profile cloned to: $target_profile"
-        else
-            log_warning "Failed to clone browser profile"
-        fi
-    else
-        log_info "No browser profile found for source environment, creating empty one"
-        mkdir -p "$target_profile"
-    fi
-    
-    # Note: Logs are NOT cloned (as requested) - each environment starts fresh
     
     log_success "Environment cloned successfully: $source_env → $target_env"
     return 0
