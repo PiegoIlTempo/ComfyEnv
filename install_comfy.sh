@@ -11,6 +11,10 @@ MANAGER_REPO="https://github.com/ltdrdata/ComfyUI-Manager.git"
 # Reserved environment names that are prohibited
 RESERVED_ENV_NAMES=("_shared")
 
+# Paths for profiles and logs
+PROFILES_ROOT="${SCRIPT_DIR}/.profiles"
+LOGS_ROOT="${SCRIPT_DIR}/.logs"
+
 # Python version mapping (version -> python_version)
 # Adjust based on your needs - older versions may need older Python
 declare -A PYTHON_VERSION_MAP=(
@@ -173,6 +177,20 @@ delete_environment() {
     log_info "Deleting environment: $env_name"
     rm -rf "$version_dir"
     
+    # Delete associated profile directory
+    local profile_dir="${PROFILES_ROOT}/${env_name}"
+    if [ -d "$profile_dir" ]; then
+        log_info "Deleting browser profile: $profile_dir"
+        rm -rf "$profile_dir"
+    fi
+    
+    # Delete associated log file
+    local log_file="${LOGS_ROOT}/${env_name}.log"
+    if [ -f "$log_file" ]; then
+        log_info "Deleting log file: $log_file"
+        rm -f "$log_file"
+    fi
+    
     if [ $? -eq 0 ]; then
         log_success "Environment deleted successfully: $env_name"
         return 0
@@ -334,6 +352,28 @@ rename_environment() {
                 ln -s "$new_target" "$outputs_link"
                 log_success "Updated outputs symlink → $new_outputs"
             fi
+        fi
+    fi
+    
+    # Rename browser profile directory
+    local old_profile="${PROFILES_ROOT}/${old_name}"
+    local new_profile="${PROFILES_ROOT}/${new_name}"
+    if [ -d "$old_profile" ]; then
+        log_info "Renaming browser profile..."
+        mv "$old_profile" "$new_profile" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            log_success "Browser profile renamed: $old_name → $new_name"
+        fi
+    fi
+    
+    # Rename log file
+    local old_log="${LOGS_ROOT}/${old_name}.log"
+    local new_log="${LOGS_ROOT}/${new_name}.log"
+    if [ -f "$old_log" ]; then
+        log_info "Renaming log file..."
+        mv "$old_log" "$new_log" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            log_success "Log file renamed: $old_name → $new_name"
         fi
     fi
     
@@ -564,6 +604,32 @@ clone_environment() {
             log_error "Failed to update output symlink"
         fi
     fi
+    
+    # Clone browser profile from source to target (for session persistence)
+    local source_profile="${PROFILES_ROOT}/${source_env}"
+    local target_profile="${PROFILES_ROOT}/${target_env}"
+    
+    if [ -d "$source_profile" ]; then
+        log_info "Cloning browser profile: $source_env → $target_env"
+        mkdir -p "$(dirname "$target_profile")"
+        
+        if command -v rsync &>/dev/null; then
+            rsync -av "$source_profile/" "$target_profile/"
+        else
+            cp -rL "$source_profile" "$target_profile"
+        fi
+        
+        if [ $? -eq 0 ]; then
+            log_success "Browser profile cloned to: $target_profile"
+        else
+            log_warning "Failed to clone browser profile"
+        fi
+    else
+        log_info "No browser profile found for source environment, creating empty one"
+        mkdir -p "$target_profile"
+    fi
+    
+    # Note: Logs are NOT cloned (as requested) - each environment starts fresh
     
     log_success "Environment cloned successfully: $source_env → $target_env"
     return 0
