@@ -66,3 +66,7 @@ outputs/*
 # Exclude configs directory
 configs/*
 !configs/.gitkeep
+
+# Exclude profiles directory
+.profiles/*
+!.profiles/.gitkeep

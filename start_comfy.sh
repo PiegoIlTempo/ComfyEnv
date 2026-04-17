@@ -15,8 +15,8 @@ LOG_FILE="comfyui.log"
 WINDOW_WIDTH=1920
 WINDOW_HEIGHT=1080
 
-# Separate profile directory (isolated from main browser)
-PROFILE_DIR="/tmp/comfyui-browser-profile-$$"
+# Persistent profiles directory (per environment)
+PROFILES_ROOT="${SCRIPT_DIR}/.profiles"
 
 # ============================================
 # Colors for output
@@ -419,12 +419,6 @@ cleanup() {
         unregister_instance "$ACTUAL_PORT"
     fi
 
-    # Clean up profile directory
-    if [ -d "$PROFILE_DIR" ]; then
-        echo -e "${BLUE}Cleaning up temporary profile...${NC}"
-        rm -rf "$PROFILE_DIR" 2>/dev/null
-    fi
-
     echo -e "${GREEN}✓ All processes stopped.${NC}"
     exit $exit_code
 }
@@ -446,7 +440,9 @@ open_browser_app_mode() {
         return 1
     fi
 
-    # Create separate profile directory
+    # Create persistent profile directory per environment
+    local env_name="$SELECTED_ENV"
+    PROFILE_DIR="${PROFILES_ROOT}/${env_name}"
     mkdir -p "$PROFILE_DIR"
 
     echo -e "${BLUE}Detected default browser: ${GREEN}${browser_type}${NC}"
@@ -462,7 +458,6 @@ open_browser_app_mode() {
                 --app="$url" \
                 --window-size=$WINDOW_WIDTH,$WINDOW_HEIGHT \
                 --user-data-dir="$PROFILE_DIR" \
-                --disable-extensions \
                 --disable-infobars \
                 --no-first-run \
                 &
@@ -895,12 +890,6 @@ while true; do
             # Unregister this instance from tracking (only if we actually started it)
             if [ $SERVER_STARTED -eq 1 ]; then
                 unregister_instance "$ACTUAL_PORT"
-            fi
-
-            # Clean up profile directory
-            if [ -d "$PROFILE_DIR" ]; then
-                echo -e "${BLUE}Cleaning up temporary profile...${NC}"
-                rm -rf "$PROFILE_DIR" 2>/dev/null
             fi
 
             echo -e "${GREEN}✓ All processes stopped.${NC}"
