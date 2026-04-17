@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2026-04-17] - Latest Updates
 
 ### Added
+- **Persistent Browser Profiles**: Each environment now has its own isolated browser profile for a cleaner browsing experience
+  - Automatic profile creation and management per environment
+  - Separate cookies, cache, and session data for each ComfyUI instance
+  - Integrated into both installation and runtime workflows
+- **Port Persistence Per Environment**: Ports are now remembered per environment for consistent session restoration
+  - Session module tracks port assignments across restarts
+  - Ensures you always connect to the same port for a given environment
 - **Multi-Instance Support**: Run multiple ComfyUI instances simultaneously on different ports!
   - `--port PORT` option to specify custom port (default: auto-select from 8188+)
   - Automatic port selection when default is in use
@@ -36,6 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Terminology Update**: Renamed "version" terminology to "environment" throughout the script for clarity - installations are now referred to as "environments" to better reflect that they can have custom names beyond just version numbers
 - **Directory Rename**: The `comfy_versions/` directory has been renamed to `environments/` to align with the new terminology and provide clearer organization
+
+### Fixed
+- **Server Cleanup Tracking**: Ensured proper cleanup tracking for server instances to prevent resource leaks and orphaned processes
+
+### Changed
+- **Log File Naming**: Simplified log file naming convention for easier identification and management
 
 ### Improved
 - **Version Detection Reliability**: ComfyUI version detection now reads directly from `comfyui_version.py` file instead of relying on git tags, providing more accurate and reliable version identification even in detached HEAD states or shallow clones
